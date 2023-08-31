@@ -1,0 +1,14 @@
+[Unit]
+Description=Speedtest Logger Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/netscale/Desktop/sigcap-buddy/speedtest_logger.py
+Restart=always
+User=netscale
+WorkingDirectory=/home/netscale/Desktop/sigcap-buddy/
+StandardOutput=append:/home/netscale/Desktop/sigcap-buddy/speedtest_logger.out
+StandardError=append:/home/netscale/Desktop/sigcap-buddy/speedtest_logger.err
+
+[Install]
+WantedBy=multi-user.target
