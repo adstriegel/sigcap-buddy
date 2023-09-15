@@ -1,0 +1,10 @@
+ERROR:root:Attempt 1 to download speedtest failed.
+ERROR:root:Attempt 2 to download speedtest failed.
+ERROR:root:Attempt 3 to download speedtest failed.
+ERROR:root:All attempts to download speedtest failed. Please ensure you have an active internet connection.
+ERROR:root:If the issue persists, locate the latest link for Ookla Speedtest CLI and update the link in speedtest_logger.py.
+ERROR:root:Attempt 1 to download speedtest failed.
+ERROR:root:Attempt 2 to download speedtest failed.
+ERROR:root:Attempt 3 to download speedtest failed.
+ERROR:root:All attempts to download speedtest failed. Please ensure you have an active internet connection.
+ERROR:root:If the issue persists, locate the latest link for Ookla Speedtest CLI and update the link in speedtest_logger.py.
