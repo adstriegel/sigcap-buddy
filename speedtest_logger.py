@@ -31,6 +31,7 @@ firebase_admin.initialize_app(cred, {
     "storageBucket": "nd-schmidt.appspot.com"
 })
 re_nmcli_wifi = re.compile(r"wlan0 +wifi +disconnected")
+re_nmcli_eth = re.compile(r"eth0 +ethernet +disconnected")
 
 
 def read_config():
@@ -48,15 +49,27 @@ def push_heartbeat():
     })
 
 
-def setup_wifi():
-    check_wifi_cmd = ["sudo", "nmcli", "device", "status"]
-    logging.debug("Checking Wi-Fi status: {}".format(" ".join(check_wifi_cmd)))
-    result = subprocess.check_output(check_wifi_cmd).decode("utf-8")
-    result = re_nmcli_wifi.findall(result)
-    logging.debug("Is Wi-Fi disconnected? {}".format(
-        (len(result) > 0)))
+def setup_network():
+    check_nmcli_cmd = ["sudo", "nmcli", "device", "status"]
+    logging.debug("Checking network device status: {}".format(
+        " ".join(check_nmcli_cmd)))
+    result = subprocess.check_output(check_nmcli_cmd).decode("utf-8")
+    eth_connected = (len(re_nmcli_eth.findall(result)) == 0)
+    wifi_connected = (len(re_nmcli_wifi.findall(result)) == 0)
+    logging.debug("Ethernet connected: {}".format(eth_connected))
+    logging.debug("Wi-Fi connected: {}".format(wifi_connected))
 
-    if (len(result) > 0):
+    if (eth_connected is False):
+        # Try to connect eth
+        try:
+            eth_result = subprocess.check_output(
+                ["sudo", "nmcli", "device", "up", "eth0"]).decode("utf-8")
+            eth_connected = (eth_result.find("successfully") >= 0)
+            logging.debug("Eth connect success? {}".format(eth_connected))
+        except Exception as e:
+            logging.warning("Cannot bring eth0 up: %s", e, exc_info=1)
+
+    if (wifi_connected is False):
         # Wi-Fi disconnected, try to get connection info and authenticate
         wifi_ref = db.reference("wifi").order_by_child("mac").equal_to(
             mac.replace("-", ":")).get()
@@ -66,37 +79,37 @@ def setup_wifi():
             wifi_ref_key = list(wifi_ref.keys())[0]
             wifi_conn = wifi_ref[wifi_ref_key]
             logging.debug("Got SSID: {}".format(wifi_conn["ssid"]))
-            result = subprocess.check_output(
+            wifi_result = subprocess.check_output(
                 ["sudo", "nmcli", "device", "wifi", "connect",
                  wifi_conn["ssid"], "password",
                  wifi_conn["pass"]]).decode("utf-8")
-            result = (result.find("successfully") >= 0)
-            logging.debug("Connect success? {}".format(result))
-        return result
-    else:
-        return True
+            wifi_connected = (wifi_result.find("successfully") >= 0)
+            logging.debug("Wi-Fi connect success? {}".format(wifi_connected))
+
+    return {"eth": eth_connected, "wifi": wifi_connected}
 
 
 def run_iperf(server, port, direction, duration, dev):
     # Run iperf command
     iperf_cmd = ["iperf3", "-c", server, "-p", str(port), "-t", str(duration),
-                 "-P", "8", "-b", "2000M", "-J", "--bind-dev", dev]
+                 "-P", "8", "-b", "2000M", "-J"]
     if (direction == "dl"):
         iperf_cmd.append("-R")
     logging.debug("Start iperf: {}".format(" ".join(iperf_cmd)))
     result = subprocess.check_output(iperf_cmd).decode("utf-8")
+    result_json = json.loads(result)
+    result_json["start"]["interface"] = dev
 
     # Log this data
     with open("logs/iperf-log/{}.json".format(
         datetime.now(timezone.utc).astimezone().isoformat()
     ), "w") as log_file:
-        log_file.write(json.dumps(result))
+        log_file.write(json.dumps(result_json))
 
 
-def run_speedtest(dev):
+def run_speedtest():
     # Run the speedtest command
-    speedtest_cmd = ["./speedtest", "--accept-license", "--format=json",
-                     "-I", dev]
+    speedtest_cmd = ["./speedtest", "--accept-license", "--format=json"]
     logging.debug("Start speedtest: {}".format(" ".join(speedtest_cmd)))
     result = subprocess.check_output(speedtest_cmd).decode("utf-8")
 
@@ -192,24 +205,40 @@ def main():
 
         # Send heartbeat to indicate up status
         push_heartbeat()
+        # Ensure Ethernet and Wi-Fi are connected
+        conn_status = setup_network()
 
         # Start tests over ethernet
-        # run_fmnc()        # Disabled while FMNC is down
-        run_iperf(server=config["iperf_server"],
-                  port=randint(5201, config["iperf_maxport"]),
-                  direction="dl", duration=config["iperf_duration"],
-                  dev="eth0")
-        run_iperf(server=config["iperf_server"],
-                  port=randint(5201, config["iperf_maxport"]),
-                  direction="ul", duration=config["iperf_duration"],
-                  dev="eth0")
-        run_speedtest(dev="eth0")
+        if (conn_status["eth"]):
+            logging.debug("Starting tests over ethernet")
+            if (conn_status["wifi"]):
+                logging.debug(subprocess.check_output(
+                    ["sudo", "nmcli", "device", "down",
+                     "wlan0"]).decode("utf-8"))
+
+            # run_fmnc()        # Disabled while FMNC is down
+            run_iperf(server=config["iperf_server"],
+                      port=randint(5201, config["iperf_maxport"]), dev="eth0",
+                      direction="dl", duration=config["iperf_duration"])
+            run_iperf(server=config["iperf_server"],
+                      port=randint(5201, config["iperf_maxport"]), dev="eth0",
+                      direction="ul", duration=config["iperf_duration"])
+            run_speedtest()
+
+            if (conn_status["wifi"]):
+                logging.debug(subprocess.check_output(
+                    ["sudo", "nmcli", "device", "up",
+                     "wlan0"]).decode("utf-8"))
 
         # Start tests over Wi-Fi
         scan_wifi()
-        # Ensure Wi-Fi is connected
-        wifi_connected = setup_wifi()
-        if wifi_connected:
+        if (conn_status["wifi"]):
+            logging.debug("Starting tests over Wi-Fi")
+            if (conn_status["eth"]):
+                logging.debug(subprocess.check_output(
+                    ["sudo", "nmcli", "device", "down",
+                     "eth0"]).decode("utf-8"))
+
             # run_fmnc()        # Disabled while FMNC is down
             run_iperf(server=config["iperf_server"],
                       port=randint(5201, config["iperf_maxport"]),
@@ -219,7 +248,12 @@ def main():
                       port=randint(5201, config["iperf_maxport"]),
                       direction="ul", duration=config["iperf_duration"],
                       dev="wlan0")
-            run_speedtest(dev="wlan0")
+            run_speedtest()
+
+            if (conn_status["eth"]):
+                logging.debug(subprocess.check_output(
+                    ["sudo", "nmcli", "device", "up",
+                     "eth0"]).decode("utf-8"))
 
         # Upload
         # TODO: Might run on a different interval in the future.
