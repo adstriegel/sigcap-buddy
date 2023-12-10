@@ -262,7 +262,7 @@ def main():
         # Sleep for interval + random backoff
         interval = config["speedtest_interval"] * 60 + randint(0, 60)
         # Run heartbeat every minute if uptime is < 60 minutes
-        while (time.clock_gettime(time.CLOCK_BOOTTIME) < 360):
+        while (time.clock_gettime(time.CLOCK_BOOTTIME) < 3600):
             logging.debug("Sleeping for 60s")
             interval -= 60
             time.sleep(60)
