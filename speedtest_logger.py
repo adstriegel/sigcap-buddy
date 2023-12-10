@@ -104,19 +104,19 @@ def run_speedtest(dev):
     with open("logs/speedtest-log/{}.json".format(
         datetime.now(timezone.utc).astimezone().isoformat()
     ), "w") as log_file:
-        log_file.write(json.dumps(result))
+        log_file.write(result)
 
 
 def scan_wifi():
     # Run Wi-Fi scan
     logging.debug("Starting Wi-Fi scan.")
     results = wifi_scan.scan()
+    timestamp = datetime.now(timezone.utc).astimezone().isoformat()
 
     # Log this data
-    with open("logs/wifi-scan/{}.json".format(
-        datetime.now(timezone.utc).astimezone().isoformat()
-    ), "w") as log_file:
-        log_file.write(json.dumps(results))
+    with open("logs/wifi-scan/{}.json".format(timestamp), "w") as log_file:
+        log_file.write(
+            json.dumps({"timestamp": timestamp, "beacons": results}))
 
 
 def upload_directory_with_transfer_manager(
