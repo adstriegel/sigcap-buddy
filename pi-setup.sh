@@ -55,5 +55,5 @@ fi
 # 7. Set update cron
 cron_list=`crontab -l 2>&1`
 if [[ ! $cron_list == *"pi-setup.sh"* ]] ; then
-	(crontab -l ; echo "$((RANDOM % 60)) 0 * * * wget -q -O - https://github.com/adstriegel/sigcap-buddy/pi-setup.sh | /bin/bash") 2>&1 | grep -v "no crontab" | sort | uniq | crontab -
+	(crontab -l ; echo "$((RANDOM % 60)) 0 * * * wget -q -O - https://raw.githubusercontent.com/adstriegel/sigcap-buddy/main/pi-setup.sh | /bin/bash") 2>&1 | grep -v "no crontab" | sort | uniq | crontab -
 fi
