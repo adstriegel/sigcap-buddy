@@ -268,8 +268,10 @@ def main():
             time.sleep(60)
             push_heartbeat()
 
-        logging.debug("Sleeping for {}s".format(interval))
-        time.sleep(interval)
+        # Avoid ValueError
+        if (interval > 0):
+            logging.debug("Sleeping for {}s".format(interval))
+            time.sleep(interval)
 
 
 if __name__ == "__main__":
