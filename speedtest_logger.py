@@ -58,9 +58,13 @@ def setup_wifi():
 
     if (len(result) > 0):
         # Wi-Fi disconnected, try to get connection info and authenticate
-        wifi_conn = db.reference("wifi").child(mac.replace("-", ":")).get()
-        result = False
-        if (wifi_conn is not None):
+        wifi_ref = db.reference("wifi").order_by_child("mac").equal_to(
+            mac.replace("-", ":")).get()
+        if not wifi_ref:
+            logging.warning("Cannot find wifi info for {}".format(mac))
+        else:
+            wifi_ref_key = list(wifi_ref.keys())[0]
+            wifi_conn = wifi_ref[wifi_ref_key]
             logging.debug("Got SSID: {}".format(wifi_conn["ssid"]))
             result = subprocess.check_output(
                 ["sudo", "nmcli", "device", "wifi", "connect",
