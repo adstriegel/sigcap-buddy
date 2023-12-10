@@ -6,61 +6,39 @@ A tool to automatically log speedtest results on a Raspberry Pi.
 
 **Prerequisites**:
 - A Raspberry Pi with a working network connection.
-- Python 3 installed.
-- Ookla Speedtest CLI (Automatically downloaded and set up by the script if not present.)
-- `inotify-tools` package installed. 
+
+Simply run the following command on the Pi:
+```
+wget -q -O - https://raw.githubusercontent.com/adstriegel/sigcap-buddy/main/pi-setup.sh | bash
+```
+This will automatically install prerequisites apps, fetch scripts, setup systemd service, and set an update cronjob.
 
 **Configuration**
 
-The program reads a config.json file to determine the interval between speed tests. The format is:
+The program reads a config.json file to determine various test configurations. The format is:
 
+```
 {
-    "speedtest_interval": 5  // The interval, in minutes, between tests.
+    "speedtest_interval": 60,            // Test interval in minutes.
+    "upload_interval": 0,                // Upload interval in minutes, set 0 to upload right after the test.
+    "iperf_server": "ns-mn1.cse.nd.edu", // Target iperf server.
+    "iperf_maxport": 5206,               // iperf port will be randomized between 5201 and this variable.
+    "iperf_duration": 10                 // Duration of iperf test.
 }
+```
 
+## **Measurement Process**
 
-## **Execution**
-
-This script runs as a service on the Raspberry Pi, logging speedtest results at intervals defined in the config file.
-
-1. Move the provided speedtest_logger.service to the /etc/systemd/system/ directory:
-sudo cp speedtest_logger.service /etc/systemd/system/
-
-2. Reload the systemd manager configuration
-sudo systemctl daemon-reload
-
-3. Start the service:
-sudo systemctl start speedtest_logger.service
-
-4. To ensure the serve starts authomatically on boot: 
-sudo systemctl enable speedtest_logger.service
-
-
-## **Code Monitoring and Auto-Updates**
-
-The script `monitor_changes.sh` can be set up to monitor the codebase for any changes and auto-update the service upon any changes.
-
-1. Ensure the `monitor_changes.sh` script is executable:
-
-chmod +x monitor_changes.sh
-
-
-2. Run the script as a cronjob so it always starts at boot time
+The following steps described the measurement process at each interval:
+1. A heartbeat message containing Pi's MAC and timestamp is pushed to our Firebase DB.
+2. eth0 and wlan0 connection states are ensured. Particularly for wlan0, the script pulls Wi-Fi connection info from Firebase DB (identified by Pi's MAC address).
+3. A suite of tests consists of iperf (DL and UL throughput), Ookla speedtest (DL, UL, and latency), and Wi-Fi beacon scanning are executed. Additionally, the iperf and Ookla speedtest runs on eth0 by disabling wlan0, and on wlan0 by disabling eth0.
+4. All files are uploaded as defined by `upload_interval` in the config. All successfully uploaded files are deleted from storage.
+5. If the Pi has just booted up (1 hour from the boot time), the script will transmit a heartbeat message every minute to ensure that the up state is pronounced.
 
 ## **Log Format**
 
-The program logs the results of each test in speedtest_log.json. Each entry is a separate line and is structured as:
-
-{
-    "start_time": "ISO timestamp when test started",
-    "end_time": "ISO timestamp when test ended",
-    "server": "Name of the test server",
-    "isp": "Name of your ISP",
-    "idle_latency": "Ping latency in ms",
-    "download_speed": "Download speed in bps",
-    "upload_speed": "Upload speed in bps",
-    "download_data_used": "Data used for the download test in bytes",
-    "upload_data_used": "Data used for the upload test in bytes"
-}
-
-
+For debugging purpose, the program logs is stored in `speedtest_logger.log`. Each test also stores its result logs in the `logs` folder with the following subfolder structure:
+- `iperf-log` contains iperf logs in JSON format.
+- `speedtest-log` contains Ookla speedtest logs in JSON format.
+- `wifi-scan` contains the results of Wi-Fi scanning in JSON format.
