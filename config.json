@@ -1,4 +1,7 @@
 {
-    "speedtest_interval": 5
+    "speedtest_interval": 60,
+    "upload_interval": 0,
+    "iperf_server": "ns-mn1.cse.nd.edu",
+    "iperf_maxport": 5206,
+    "iperf_duration": 10
 }
-
