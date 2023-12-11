@@ -22,7 +22,7 @@ def main():
 
     mac = args.mac
     if (mac is None):
-        mac = input("Input MAC [{}]: ".format(def_mac))
+        mac = input("Input MAC [{}]: ".format(def_mac)).replace("-", ":")
         if (mac == ""):
             mac = def_mac
 
