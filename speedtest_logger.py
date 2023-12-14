@@ -89,14 +89,16 @@ def setup_network():
     return {"eth": eth_connected, "wifi": wifi_connected}
 
 
-def run_iperf(server, port, direction, duration, dev):
+def run_iperf(server, port, direction, duration, dev, timeout_s):
     # Run iperf command
     iperf_cmd = ["iperf3", "-c", server, "-p", str(port), "-t", str(duration),
                  "-P", "8", "-b", "2000M", "-J"]
     if (direction == "dl"):
         iperf_cmd.append("-R")
     logging.debug("Start iperf: {}".format(" ".join(iperf_cmd)))
-    result = subprocess.check_output(iperf_cmd).decode("utf-8")
+    result = subprocess.check_output(
+        iperf_cmd,
+        timeout=timeout_s).decode("utf-8")
     result_json = json.loads(result)
     result_json["start"]["interface"] = dev
 
@@ -107,11 +109,13 @@ def run_iperf(server, port, direction, duration, dev):
         log_file.write(json.dumps(result_json))
 
 
-def run_speedtest():
+def run_speedtest(timeout_s):
     # Run the speedtest command
     speedtest_cmd = ["./speedtest", "--accept-license", "--format=json"]
     logging.debug("Start speedtest: {}".format(" ".join(speedtest_cmd)))
-    result = subprocess.check_output(speedtest_cmd).decode("utf-8")
+    result = subprocess.check_output(
+        speedtest_cmd,
+        timeout=timeout_s).decode("utf-8")
 
     # Log this data
     with open("logs/speedtest-log/{}.json".format(
@@ -218,12 +222,14 @@ def main():
 
             # run_fmnc()        # Disabled while FMNC is down
             run_iperf(server=config["iperf_server"],
-                      port=randint(5201, config["iperf_maxport"]), dev="eth0",
-                      direction="dl", duration=config["iperf_duration"])
+                      port=randint(5201, config["iperf_maxport"]),
+                      direction="dl", duration=config["iperf_duration"],
+                      dev="eth0", timeout_s=config["timeout_s"])
             run_iperf(server=config["iperf_server"],
-                      port=randint(5201, config["iperf_maxport"]), dev="eth0",
-                      direction="ul", duration=config["iperf_duration"])
-            run_speedtest()
+                      port=randint(5201, config["iperf_maxport"]),
+                      direction="ul", duration=config["iperf_duration"],
+                      dev="eth0", timeout_s=config["timeout_s"])
+            run_speedtest(timeout_s=config["timeout_s"])
 
             if (conn_status["wifi"]):
                 logging.debug(subprocess.check_output(
@@ -243,12 +249,12 @@ def main():
             run_iperf(server=config["iperf_server"],
                       port=randint(5201, config["iperf_maxport"]),
                       direction="dl", duration=config["iperf_duration"],
-                      dev="wlan0")
+                      dev="wlan0", timeout_s=config["timeout_s"])
             run_iperf(server=config["iperf_server"],
                       port=randint(5201, config["iperf_maxport"]),
                       direction="ul", duration=config["iperf_duration"],
-                      dev="wlan0")
-            run_speedtest()
+                      dev="wlan0", timeout_s=config["timeout_s"])
+            run_speedtest(timeout_s=config["timeout_s"])
 
             if (conn_status["eth"]):
                 logging.debug(subprocess.check_output(
