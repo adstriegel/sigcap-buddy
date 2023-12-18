@@ -86,6 +86,14 @@ def read_beacon_ie(ie_hex_string):
 
             output["elements"]["basic_mcs_set"] = int.from_bytes(
                 byte_data[8:24], byteorder='little')
+        case 192:
+            # VHT Operation
+            output["type"] = "VHT Operation"
+            output["elements"]["channel_width"] = byte_data[2]
+            output["elements"]["channel_center_freq_0"] = byte_data[3]
+            output["elements"]["channel_center_freq_1"] = byte_data[4]
+            output["elements"]["basic_mcs_set"] = int.from_bytes(
+                byte_data[5:7], byteorder='little')
         case _:
             output["type"] = "Unknown"
 
