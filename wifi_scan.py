@@ -43,6 +43,8 @@ def read_beacon_ie(ie_hex_string):
             output["elements"]["sta_count"] = int.from_bytes(
                 byte_data[2:4], byteorder='little')
             output["elements"]["ch_utilization"] = byte_data[4] / 255
+            output["elements"]["available_admission_cap"] = int.from_bytes(
+                byte_data[5:7], byteorder='little')
         case 35:
             # TPC Report
             output["type"] = "TPC Report"
