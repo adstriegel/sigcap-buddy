@@ -15,12 +15,8 @@ re_patterns = {
 }
 
 
-def hex_to_uint(hex_string):
-    return int(hex_string, 16)
-
-
-def hex_to_int(hex_string):
-    out = hex_to_uint(hex_string)
+def byte_uint_to_int(byte_uint):
+    out = byte_uint
     # check sign bit
     if (out & 0x8000) == 0x8000:
         # if set, invert and add one to get the negative value,
@@ -32,24 +28,26 @@ def hex_to_int(hex_string):
 def read_beacon_ie(ie_hex_string):
     output = {
         "id": 0,
+        "raw": ie_hex_string,
         "type": "",
         "elements": {}
     }
-    octets = [ie_hex_string[i:i + 2] for i in range(0, len(ie_hex_string), 2)]
-    output["id"] = int(octets[0], 16)
+    # Convert hex string to bytes
+    byte_data = bytes.fromhex(ie_hex_string)
+    output["id"] = byte_data[0]
 
     match output["id"]:
         case 11:
             # BSS Load
             output["type"] = "BSS Load"
-            output["elements"]["sta_count"] = hex_to_uint(
-                octets[3] + octets[2])
-            output["elements"]["ch_utilization"] = hex_to_uint(octets[4]) / 255
+            output["elements"]["sta_count"] = int.from_bytes(
+                byte_data[2:4], byteorder='little')
+            output["elements"]["ch_utilization"] = byte_data[4] / 255
         case 35:
             # TPC Report
             output["type"] = "TPC Report"
-            output["elements"]["tx_power"] = hex_to_int(octets[2])
-            output["elements"]["link_margin"] = hex_to_int(octets[3])
+            output["elements"]["tx_power"] = byte_uint_to_int(byte_data[2])
+            output["elements"]["link_margin"] = byte_uint_to_int(byte_data[3])
         case _:
             output["type"] = "Unknown"
 
@@ -97,3 +95,7 @@ def scan(iface="wlan0"):
             cells.append(cell)
 
     return cells
+
+
+if __name__ == '__main__':
+    print(scan())
