@@ -86,8 +86,7 @@ def scan(iface="wlan0"):
                     for ie_hex in matches:
                         # Convert hex string to information element dict
                         ie = read_beacon_ie(ie_hex)
-                        if ie["type"] != "Unknown":
-                            cell[key].append(ie)
+                        cell[key].append(ie)
                 elif key == "rates":
                     cell[key] = matches
                 else:
