@@ -94,6 +94,69 @@ def read_beacon_ie(ie_hex_string):
             output["elements"]["channel_center_freq_1"] = byte_data[4]
             output["elements"]["basic_mcs_set"] = int.from_bytes(
                 byte_data[5:7], byteorder='little')
+        case 255:
+            output["elements"]["ext_id"] = byte_data[2]
+            match output["elements"]["ext_id"]:
+                case 36:
+                    # HE Operation
+                    output["type"] = "HE Operation"
+                    he_operation_info = byte_data[3:6]
+                    output["elements"]["default_pe_duration"] = (
+                        he_operation_info[0] & 0x07)
+                    output["elements"]["twt_required"] = (
+                        (he_operation_info[0] >> 3) & 0x01)
+                    output["elements"]["txop_dur_rts_thresh"] = (
+                        (he_operation_info[0] >> 4) & 0x0F
+                        + (he_operation_info[1] & 0x3F))
+                    output["elements"]["vht_info_present"] = (
+                        (he_operation_info[1] >> 6) & 0x01)
+                    output["elements"]["cohosted_bss"] = (
+                        (he_operation_info[1] >> 7) & 0x01)
+                    output["elements"]["er_su_disable"] = (
+                        he_operation_info[2] & 0x01)
+                    output["elements"]["6ghz_info_present"] = (
+                        (he_operation_info[2] >> 1) & 0x01)
+
+                    bss_color_info = byte_data[6]
+                    output["elements"]["bss_color"] = (
+                        bss_color_info & 0x3F)
+                    output["elements"]["partial_bss_color"] = (
+                        (bss_color_info >> 6) & 0x01)
+                    output["elements"]["bss_color_disabled"] = (
+                        (bss_color_info >> 7) & 0x01)
+
+                    output["elements"]["basic_mcs_set"] = int.from_bytes(
+                        byte_data[7:9], byteorder='little')
+
+                    start_index = 9
+                    if (output["elements"]["vht_info_present"]):
+                        # Decode VHT info
+                        output["elements"]["vht_info"] = {
+                            "channel_width": byte_data[start_index],
+                            "channel_center_freq_0": byte_data[start_index + 1],
+                            "channel_center_freq_1": byte_data[start_index + 2]
+                        }
+                        start_index += 3
+
+                    if (output["elements"]["cohosted_bss"]):
+                        output["elements"]["max_cohosted_bss_indicator"] = byte_data[start_index]
+                        start_index += 1
+
+                    if (output["elements"]["6ghz_info_present"]):
+                        control = byte_data[start_index + 1]
+
+                        output["elements"]["6ghz_info"] = {
+                            "primary_channel": byte_data[start_index],
+                            "channel_width": (control & 0x03),
+                            "duplicate_beacon": ((control >> 2) & 0x01),
+                            "regulatory_info": ((control >> 3) & 0x07),
+                            "channel_center_freq_0": byte_data[start_index + 2],
+                            "channel_center_freq_1": byte_data[start_index + 3],
+                            "min_rate": byte_data[start_index + 4],
+                        }
+                        start_index += 5
+                case _:
+                    output["type"] = "Unknown"
         case _:
             output["type"] = "Unknown"
 
