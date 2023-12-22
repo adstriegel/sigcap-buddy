@@ -9,7 +9,7 @@ re_patterns = {
     "channel": re.compile(r"Channel: *(\d+)"),
     "freq": re.compile(r"Frequency: *([\d\.]+ ?.Hz)"),
     "rssi": re.compile(r"Signal level= *([-\d\.]+ ?dBm)"),
-    "ssid": re.compile(r"ESSID: *\"(.+)\""),
+    "ssid": re.compile(r"ESSID: *\"([^\"]+)\""),
     "rates": re.compile(r"\d+ Mb/s"),
     "extras": re.compile(r"IE: +Unknown: +([0-9A-F]+)")
 }
