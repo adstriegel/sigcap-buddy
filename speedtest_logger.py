@@ -222,11 +222,13 @@ def main():
 
             # run_fmnc()        # Disabled while FMNC is down
             run_iperf(server=config["iperf_server"],
-                      port=randint(5201, config["iperf_maxport"]),
+                      port=randint(config["iperf_minport"],
+                                   config["iperf_maxport"]),
                       direction="dl", duration=config["iperf_duration"],
                       dev="eth0", timeout_s=config["timeout_s"])
             run_iperf(server=config["iperf_server"],
-                      port=randint(5201, config["iperf_maxport"]),
+                      port=randint(config["iperf_minport"],
+                                   config["iperf_maxport"]),
                       direction="ul", duration=config["iperf_duration"],
                       dev="eth0", timeout_s=config["timeout_s"])
             run_speedtest(timeout_s=config["timeout_s"])
@@ -247,11 +249,13 @@ def main():
 
             # run_fmnc()        # Disabled while FMNC is down
             run_iperf(server=config["iperf_server"],
-                      port=randint(5201, config["iperf_maxport"]),
+                      port=randint(config["iperf_minport"],
+                                   config["iperf_maxport"]),
                       direction="dl", duration=config["iperf_duration"],
                       dev="wlan0", timeout_s=config["timeout_s"])
             run_iperf(server=config["iperf_server"],
-                      port=randint(5201, config["iperf_maxport"]),
+                      port=randint(config["iperf_minport"],
+                                   config["iperf_maxport"]),
                       direction="ul", duration=config["iperf_duration"],
                       dev="wlan0", timeout_s=config["timeout_s"])
             run_speedtest(timeout_s=config["timeout_s"])
