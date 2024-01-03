@@ -57,3 +57,6 @@ cron_list=`crontab -l 2>&1`
 if [[ ! $cron_list == *"pi-setup.sh"* ]] ; then
 	(crontab -l ; echo "$((RANDOM % 60)) 0 * * * wget -q -O - https://raw.githubusercontent.com/adstriegel/sigcap-buddy/main/pi-setup.sh | /bin/bash") 2>&1 | grep -v "no crontab" | sort | uniq | crontab -
 fi
+
+# 8. Reset Wi-Fi connection
+nmcli --terse connection show | awk -F ":" '{if ($3 == "802-11-wireless") print $1}' | while read name; do sudo nmcli connection delete "$name"; done
