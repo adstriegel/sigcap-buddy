@@ -4,6 +4,6 @@
     "iperf_server": "ns-mn1.cse.nd.edu",
     "iperf_minport": 5201,
     "iperf_maxport": 5220,
-    "iperf_duration": 10,
+    "iperf_duration": 5,
     "timeout_s": 120
 }
