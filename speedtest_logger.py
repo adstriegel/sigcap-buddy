@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import firebase_admin
 from firebase_admin import credentials
@@ -12,7 +13,7 @@ from random import randint
 import re
 import subprocess
 import time
-from uuid import getnode as get_mac
+from uuid import getnode as get_mac, uuid4
 import wifi_scan
 
 # Setup
@@ -34,17 +35,25 @@ re_nmcli_wifi = re.compile(r"wlan0 +wifi +disconnected")
 re_nmcli_eth = re.compile(r"eth0 +ethernet +disconnected")
 
 
+def run_io_tasks_in_parallel(tasks):
+    with ThreadPoolExecutor() as executor:
+        running_tasks = [executor.submit(task) for task in tasks]
+        for running_task in running_tasks:
+            running_task.result()
+
+
 def read_config():
     logging.debug("Reading config.json.")
     with open("config.json", "r") as config_file:
         return json.load(config_file)
 
 
-def push_heartbeat():
+def push_heartbeat(test_uuid):
     logging.debug("Pushing heartbeat.")
     heartbeat_ref = db.reference("heartbeat")
     heartbeat_ref.push().set({
         "mac": mac,
+        "test_uuid": test_uuid,
         "last_timestamp": datetime.timestamp(datetime.now()) * 1000
     })
 
@@ -89,7 +98,7 @@ def setup_network():
     return {"eth": eth_connected, "wifi": wifi_connected}
 
 
-def run_iperf(server, port, direction, duration, dev, timeout_s):
+def run_iperf(test_uuid, server, port, direction, duration, dev, timeout_s):
     # Run iperf command
     iperf_cmd = ["iperf3", "-c", server, "-p", str(port), "-t", str(duration),
                  "-P", "8", "-b", "2000M", "-J"]
@@ -101,6 +110,7 @@ def run_iperf(server, port, direction, duration, dev, timeout_s):
         timeout=timeout_s).decode("utf-8")
     result_json = json.loads(result)
     result_json["start"]["interface"] = dev
+    result_json["start"]["test_uuid"] = test_uuid
 
     # Log this data
     with open("logs/iperf-log/{}.json".format(
@@ -109,22 +119,24 @@ def run_iperf(server, port, direction, duration, dev, timeout_s):
         log_file.write(json.dumps(result_json))
 
 
-def run_speedtest(timeout_s):
+def run_speedtest(test_uuid, timeout_s):
     # Run the speedtest command
     speedtest_cmd = ["./speedtest", "--accept-license", "--format=json"]
     logging.debug("Start speedtest: {}".format(" ".join(speedtest_cmd)))
     result = subprocess.check_output(
         speedtest_cmd,
         timeout=timeout_s).decode("utf-8")
+    result_json = json.loads(result)
+    result_json["test_uuid"] = test_uuid
 
     # Log this data
     with open("logs/speedtest-log/{}.json".format(
         datetime.now(timezone.utc).astimezone().isoformat()
     ), "w") as log_file:
-        log_file.write(result)
+        log_file.write(json.dumps(result_json))
 
 
-def scan_wifi():
+def scan_wifi(extra):
     # Run Wi-Fi scan
     logging.debug("Starting Wi-Fi scan.")
     results = wifi_scan.scan()
@@ -133,7 +145,10 @@ def scan_wifi():
     # Log this data
     with open("logs/wifi-scan/{}.json".format(timestamp), "w") as log_file:
         log_file.write(
-            json.dumps({"timestamp": timestamp, "beacons": results}))
+            json.dumps({
+                "timestamp": timestamp,
+                "extra": extra,
+                "beacons": results}))
 
 
 def upload_directory_with_transfer_manager(
@@ -207,8 +222,10 @@ def main():
         # Update config
         config = read_config()
 
+        # Random UUID to correlate WiFi scans and tests
+        test_uuid = str(uuid4())
         # Send heartbeat to indicate up status
-        push_heartbeat()
+        push_heartbeat(test_uuid=test_uuid)
         # Ensure Ethernet and Wi-Fi are connected
         conn_status = setup_network()
 
@@ -221,17 +238,20 @@ def main():
                      "wlan0"]).decode("utf-8"))
 
             # run_fmnc()        # Disabled while FMNC is down
-            run_iperf(server=config["iperf_server"],
+            run_iperf(test_uuid=test_uuid,
+                      server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
                                    config["iperf_maxport"]),
                       direction="dl", duration=config["iperf_duration"],
                       dev="eth0", timeout_s=config["timeout_s"])
-            run_iperf(server=config["iperf_server"],
+            run_iperf(test_uuid=test_uuid,
+                      server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
                                    config["iperf_maxport"]),
                       direction="ul", duration=config["iperf_duration"],
                       dev="eth0", timeout_s=config["timeout_s"])
-            run_speedtest(timeout_s=config["timeout_s"])
+            run_speedtest(test_uuid=test_uuid,
+                          timeout_s=config["timeout_s"])
 
             if (conn_status["wifi"]):
                 logging.debug(subprocess.check_output(
@@ -239,7 +259,6 @@ def main():
                      "wlan0"]).decode("utf-8"))
 
         # Start tests over Wi-Fi
-        scan_wifi()
         if (conn_status["wifi"]):
             logging.debug("Starting tests over Wi-Fi")
             if (conn_status["eth"]):
@@ -248,22 +267,48 @@ def main():
                      "eth0"]).decode("utf-8"))
 
             # run_fmnc()        # Disabled while FMNC is down
-            run_iperf(server=config["iperf_server"],
-                      port=randint(config["iperf_minport"],
-                                   config["iperf_maxport"]),
-                      direction="dl", duration=config["iperf_duration"],
-                      dev="wlan0", timeout_s=config["timeout_s"])
-            run_iperf(server=config["iperf_server"],
-                      port=randint(config["iperf_minport"],
-                                   config["iperf_maxport"]),
-                      direction="ul", duration=config["iperf_duration"],
-                      dev="wlan0", timeout_s=config["timeout_s"])
-            run_speedtest(timeout_s=config["timeout_s"])
+            run_io_tasks_in_parallel([
+                lambda: scan_wifi(extra={
+                    "test_uuid": test_uuid,
+                    "corr_test": "iperf-dl"
+                }),
+                lambda: run_iperf(
+                    test_uuid=test_uuid,
+                    server=config["iperf_server"],
+                    port=randint(config["iperf_minport"],
+                                 config["iperf_maxport"]),
+                    direction="dl", duration=config["iperf_duration"],
+                    dev="wlan0", timeout_s=config["timeout_s"])
+            ])
+            run_io_tasks_in_parallel([
+                lambda: scan_wifi(extra={
+                    "test_uuid": test_uuid,
+                    "corr_test": "iperf-ul"
+                }),
+                lambda: run_iperf(
+                    test_uuid=test_uuid,
+                    server=config["iperf_server"],
+                    port=randint(config["iperf_minport"],
+                                 config["iperf_maxport"]),
+                    direction="ul", duration=config["iperf_duration"],
+                    dev="wlan0", timeout_s=config["timeout_s"])
+            ])
+            run_io_tasks_in_parallel([
+                lambda: scan_wifi(extra={
+                    "test_uuid": test_uuid,
+                    "corr_test": "speedtest"
+                }),
+                lambda: run_speedtest(
+                    test_uuid=test_uuid,
+                    timeout_s=config["timeout_s"])
+            ])
 
             if (conn_status["eth"]):
                 logging.debug(subprocess.check_output(
                     ["sudo", "nmcli", "device", "up",
                      "eth0"]).decode("utf-8"))
+        else:
+            scan_wifi()
 
         # Upload
         # TODO: Might run on a different interval in the future.
@@ -276,7 +321,7 @@ def main():
             logging.debug("Sleeping for 60s")
             interval -= 60
             time.sleep(60)
-            push_heartbeat()
+            push_heartbeat(test_uuid="startup")
 
         # Avoid ValueError
         if (interval > 0):
