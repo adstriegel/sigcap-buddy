@@ -230,7 +230,8 @@ def upload_directory_with_transfer_manager(
                 name, result))
         else:
             logging.debug("Uploaded {} to {}.".format(name, bucket.name))
-            Path("{}/{}".format(source_dir, name)).unlink()
+            if not (name.startswith("speedtest_logger.log")):
+                Path("{}/{}".format(source_dir, name)).unlink()
 
 
 def main():
