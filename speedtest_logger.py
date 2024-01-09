@@ -8,6 +8,8 @@ from getpass import getuser
 from google.cloud.storage import transfer_manager
 import json
 import logging
+from logging.handlers import TimedRotatingFileHandler
+from logging import Formatter
 from pathlib import Path
 from random import randint
 import re
@@ -16,13 +18,25 @@ import time
 from uuid import getnode as get_mac, uuid4
 import wifi_scan
 
-# Setup
+logdir = "/home/{}/sigcap-buddy/logs".format(getuser())
+
+# Logging setup
+handler = TimedRotatingFileHandler(
+    filename="{}/speedtest_logger.log".format(logdir),
+    when="D", interval=1, backupCount=90, encoding="utf-8",
+    delay=False)
+formatter = Formatter(
+    fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
 logging.basicConfig(
-    filename="/home/{}/sigcap-buddy/speedtest_logger.log".format(getuser()),
+    handlers=[handler],
     level=logging.DEBUG
 )
+
+# Connected network MAC address (usually eth0)
 mac = "-".join(("%012X" % get_mac())[i:i + 2] for i in range(0, 12, 2))
-logdir = "/home/{}/sigcap-buddy/logs".format(getuser())
+
+# Firebase setup
 cred = credentials.Certificate(
     "/home/{}/sigcap-buddy/{}".format(
         getuser(), "nd-schmidt-firebase-adminsdk-d1gei-43db929d8a.json")
@@ -31,6 +45,8 @@ firebase_admin.initialize_app(cred, {
     "databaseURL": "https://nd-schmidt-default-rtdb.firebaseio.com",
     "storageBucket": "nd-schmidt.appspot.com"
 })
+
+# Regexes
 re_nmcli_wifi = re.compile(r"wlan0 +wifi +disconnected")
 re_nmcli_eth = re.compile(r"eth0 +ethernet +disconnected")
 
