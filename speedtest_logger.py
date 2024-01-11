@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 import firebase_admin
 from firebase_admin import credentials
@@ -51,8 +51,8 @@ re_nmcli_wifi = re.compile(r"wlan0 +wifi +disconnected")
 re_nmcli_eth = re.compile(r"eth0 +ethernet +disconnected")
 
 
-def run_io_tasks_in_parallel(tasks):
-    with ThreadPoolExecutor() as executor:
+def run_cpu_tasks_in_parallel(tasks):
+    with ProcessPoolExecutor() as executor:
         running_tasks = [executor.submit(task) for task in tasks]
         for running_task in running_tasks:
             running_task.result()
@@ -62,6 +62,20 @@ def read_config():
     logging.debug("Reading config.json.")
     with open("config.json", "r") as config_file:
         return json.load(config_file)
+
+
+config = read_config()
+# Random UUID to correlate WiFi scans and tests
+config["test_uuid"] = str(uuid4())
+
+
+def update_config():
+    temp_config = read_config()
+    for key in config:
+        if (key == "test_uuid"):
+            config[key] = str(uuid4())
+        elif key in temp_config:
+            config[key] = temp_config[key]
 
 
 def push_heartbeat(test_uuid):
@@ -257,15 +271,57 @@ def set_interface(iface, state):
             iface, state, e, exc_info=1)
 
 
+def scan_wifi_iperf_dl():
+    scan_wifi(extra={
+        "test_uuid": config["test_uuid"],
+        "corr_test": "iperf-dl"})
+
+
+def iperf_wifi_iperf_dl():
+    run_iperf(
+        test_uuid=config["test_uuid"],
+        server=config["iperf_server"],
+        port=randint(config["iperf_minport"],
+                     config["iperf_maxport"]),
+        direction="dl", duration=config["iperf_duration"],
+        dev="wlan0", timeout_s=config["timeout_s"])
+
+
+def scan_wifi_iperf_ul():
+    scan_wifi(extra={
+        "test_uuid": config["test_uuid"],
+        "corr_test": "iperf-ul"})
+
+
+def iperf_wifi_iperf_ul():
+    run_iperf(
+        test_uuid=config["test_uuid"],
+        server=config["iperf_server"],
+        port=randint(config["iperf_minport"],
+                     config["iperf_maxport"]),
+        direction="ul", duration=config["iperf_duration"],
+        dev="wlan0", timeout_s=config["timeout_s"])
+
+
+def scan_wifi_speedtest():
+    scan_wifi(extra={
+        "test_uuid": config["test_uuid"],
+        "corr_test": "speedtest"})
+
+
+def speedtest_wifi_speedtest():
+    run_speedtest(
+        test_uuid=config["test_uuid"],
+        timeout_s=config["timeout_s"])
+
+
 def main():
     while True:
         # Update config
-        config = read_config()
+        update_config()
 
-        # Random UUID to correlate WiFi scans and tests
-        test_uuid = str(uuid4())
         # Send heartbeat to indicate up status
-        push_heartbeat(test_uuid=test_uuid)
+        push_heartbeat(test_uuid=config["test_uuid"])
         # Ensure Ethernet and Wi-Fi are connected
         conn_status = setup_network()
 
@@ -276,19 +332,19 @@ def main():
                 set_interface("wlan0", "down")
 
             # run_fmnc()        # Disabled while FMNC is down
-            run_iperf(test_uuid=test_uuid,
+            run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
                                    config["iperf_maxport"]),
                       direction="dl", duration=config["iperf_duration"],
                       dev="eth0", timeout_s=config["timeout_s"])
-            run_iperf(test_uuid=test_uuid,
+            run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
                                    config["iperf_maxport"]),
                       direction="ul", duration=config["iperf_duration"],
                       dev="eth0", timeout_s=config["timeout_s"])
-            run_speedtest(test_uuid=test_uuid,
+            run_speedtest(test_uuid=config["test_uuid"],
                           timeout_s=config["timeout_s"])
 
             if (conn_status["wifi"]):
@@ -301,47 +357,24 @@ def main():
                 set_interface("eth0", "down")
 
             # run_fmnc()        # Disabled while FMNC is down
-            run_io_tasks_in_parallel([
-                lambda: scan_wifi(extra={
-                    "test_uuid": test_uuid,
-                    "corr_test": "iperf-dl"
-                }),
-                lambda: run_iperf(
-                    test_uuid=test_uuid,
-                    server=config["iperf_server"],
-                    port=randint(config["iperf_minport"],
-                                 config["iperf_maxport"]),
-                    direction="dl", duration=config["iperf_duration"],
-                    dev="wlan0", timeout_s=config["timeout_s"])
+            run_cpu_tasks_in_parallel([
+                scan_wifi_iperf_dl,
+                iperf_wifi_iperf_dl
             ])
-            run_io_tasks_in_parallel([
-                lambda: scan_wifi(extra={
-                    "test_uuid": test_uuid,
-                    "corr_test": "iperf-ul"
-                }),
-                lambda: run_iperf(
-                    test_uuid=test_uuid,
-                    server=config["iperf_server"],
-                    port=randint(config["iperf_minport"],
-                                 config["iperf_maxport"]),
-                    direction="ul", duration=config["iperf_duration"],
-                    dev="wlan0", timeout_s=config["timeout_s"])
+            run_cpu_tasks_in_parallel([
+                scan_wifi_iperf_ul,
+                iperf_wifi_iperf_ul
             ])
-            run_io_tasks_in_parallel([
-                lambda: scan_wifi(extra={
-                    "test_uuid": test_uuid,
-                    "corr_test": "speedtest"
-                }),
-                lambda: run_speedtest(
-                    test_uuid=test_uuid,
-                    timeout_s=config["timeout_s"])
+            run_cpu_tasks_in_parallel([
+                scan_wifi_speedtest,
+                speedtest_wifi_speedtest
             ])
 
             if (conn_status["eth"]):
                 set_interface("eth0", "up")
         else:
             scan_wifi(extra={
-                "test_uuid": test_uuid,
+                "test_uuid": config["test_uuid"],
                 "corr_test": "none"
             })
 
