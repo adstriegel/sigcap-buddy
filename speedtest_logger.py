@@ -325,7 +325,10 @@ def main():
                     ["sudo", "nmcli", "device", "up",
                      "eth0"]).decode("utf-8"))
         else:
-            scan_wifi()
+            scan_wifi(extra={
+                "test_uuid": test_uuid,
+                "corr_test": "none"
+            })
 
         # Upload
         # TODO: Might run on a different interval in the future.
