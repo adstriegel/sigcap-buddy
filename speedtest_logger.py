@@ -104,12 +104,16 @@ def setup_network():
             wifi_ref_key = list(wifi_ref.keys())[0]
             wifi_conn = wifi_ref[wifi_ref_key]
             logging.debug("Got SSID: {}".format(wifi_conn["ssid"]))
-            wifi_result = subprocess.check_output(
-                ["sudo", "nmcli", "device", "wifi", "connect",
-                 wifi_conn["ssid"], "password",
-                 wifi_conn["pass"]]).decode("utf-8")
-            wifi_connected = (wifi_result.find("successfully") >= 0)
-            logging.debug("Wi-Fi connect success? {}".format(wifi_connected))
+            try:
+                wifi_result = subprocess.check_output(
+                    ["sudo", "nmcli", "device", "wifi", "connect",
+                     wifi_conn["ssid"], "password",
+                     wifi_conn["pass"]]).decode("utf-8")
+                wifi_connected = (wifi_result.find("successfully") >= 0)
+                logging.debug("Wi-Fi connect success? {}".format(
+                    wifi_connected))
+            except Exception as e:
+                logging.warning("Cannot connect wlan0: %s", e, exc_info=1)
 
     return {"eth": eth_connected, "wifi": wifi_connected}
 
@@ -121,35 +125,43 @@ def run_iperf(test_uuid, server, port, direction, duration, dev, timeout_s):
     if (direction == "dl"):
         iperf_cmd.append("-R")
     logging.debug("Start iperf: {}".format(" ".join(iperf_cmd)))
-    result = subprocess.check_output(
-        iperf_cmd,
-        timeout=timeout_s).decode("utf-8")
-    result_json = json.loads(result)
-    result_json["start"]["interface"] = dev
-    result_json["start"]["test_uuid"] = test_uuid
 
-    # Log this data
-    with open("logs/iperf-log/{}.json".format(
-        datetime.now(timezone.utc).astimezone().isoformat()
-    ), "w") as log_file:
-        log_file.write(json.dumps(result_json))
+    try:
+        result = subprocess.check_output(
+            iperf_cmd,
+            timeout=timeout_s).decode("utf-8")
+        result_json = json.loads(result)
+        result_json["start"]["interface"] = dev
+        result_json["start"]["test_uuid"] = test_uuid
+
+        # Log this data
+        with open("logs/iperf-log/{}.json".format(
+            datetime.now(timezone.utc).astimezone().isoformat()
+        ), "w") as log_file:
+            log_file.write(json.dumps(result_json))
+    except Exception as e:
+        logging.warning("Error while running iperf: %s", e, exc_info=1)
 
 
 def run_speedtest(test_uuid, timeout_s):
     # Run the speedtest command
     speedtest_cmd = ["./speedtest", "--accept-license", "--format=json"]
     logging.debug("Start speedtest: {}".format(" ".join(speedtest_cmd)))
-    result = subprocess.check_output(
-        speedtest_cmd,
-        timeout=timeout_s).decode("utf-8")
-    result_json = json.loads(result)
-    result_json["test_uuid"] = test_uuid
 
-    # Log this data
-    with open("logs/speedtest-log/{}.json".format(
-        datetime.now(timezone.utc).astimezone().isoformat()
-    ), "w") as log_file:
-        log_file.write(json.dumps(result_json))
+    try:
+        result = subprocess.check_output(
+            speedtest_cmd,
+            timeout=timeout_s).decode("utf-8")
+        result_json = json.loads(result)
+        result_json["test_uuid"] = test_uuid
+
+        # Log this data
+        with open("logs/speedtest-log/{}.json".format(
+            datetime.now(timezone.utc).astimezone().isoformat()
+        ), "w") as log_file:
+            log_file.write(json.dumps(result_json))
+    except Exception as e:
+        logging.warning("Error while running speedtest: %s", e, exc_info=1)
 
 
 def scan_wifi(extra):
@@ -234,6 +246,17 @@ def upload_directory_with_transfer_manager(
                 Path("{}/{}".format(source_dir, name)).unlink()
 
 
+def set_interface(iface, state):
+    try:
+        logging.debug(subprocess.check_output(
+            ["sudo", "nmcli", "device", state,
+             iface]).decode("utf-8"))
+    except Exception as e:
+        logging.warning(
+            "Error while setting interface %s %s: %s",
+            iface, state, e, exc_info=1)
+
+
 def main():
     while True:
         # Update config
@@ -250,9 +273,7 @@ def main():
         if (conn_status["eth"]):
             logging.debug("Starting tests over ethernet")
             if (conn_status["wifi"]):
-                logging.debug(subprocess.check_output(
-                    ["sudo", "nmcli", "device", "down",
-                     "wlan0"]).decode("utf-8"))
+                set_interface("wlan0", "down")
 
             # run_fmnc()        # Disabled while FMNC is down
             run_iperf(test_uuid=test_uuid,
@@ -271,17 +292,13 @@ def main():
                           timeout_s=config["timeout_s"])
 
             if (conn_status["wifi"]):
-                logging.debug(subprocess.check_output(
-                    ["sudo", "nmcli", "device", "up",
-                     "wlan0"]).decode("utf-8"))
+                set_interface("wlan0", "up")
 
         # Start tests over Wi-Fi
         if (conn_status["wifi"]):
             logging.debug("Starting tests over Wi-Fi")
             if (conn_status["eth"]):
-                logging.debug(subprocess.check_output(
-                    ["sudo", "nmcli", "device", "down",
-                     "eth0"]).decode("utf-8"))
+                set_interface("eth0", "down")
 
             # run_fmnc()        # Disabled while FMNC is down
             run_io_tasks_in_parallel([
@@ -321,9 +338,7 @@ def main():
             ])
 
             if (conn_status["eth"]):
-                logging.debug(subprocess.check_output(
-                    ["sudo", "nmcli", "device", "up",
-                     "eth0"]).decode("utf-8"))
+                set_interface("eth0", "up")
         else:
             scan_wifi(extra={
                 "test_uuid": test_uuid,
