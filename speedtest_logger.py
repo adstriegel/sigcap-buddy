@@ -1,4 +1,3 @@
-from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 import firebase_admin
 from firebase_admin import credentials
@@ -49,13 +48,6 @@ firebase_admin.initialize_app(cred, {
 # Regexes
 re_nmcli_wifi = re.compile(r"wlan0 +wifi +disconnected")
 re_nmcli_eth = re.compile(r"eth0 +ethernet +disconnected")
-
-
-def run_cpu_tasks_in_parallel(tasks):
-    with ProcessPoolExecutor() as executor:
-        running_tasks = [executor.submit(task) for task in tasks]
-        for running_task in running_tasks:
-            running_task.result()
 
 
 def read_config():
@@ -271,50 +263,6 @@ def set_interface(iface, state):
             iface, state, e, exc_info=1)
 
 
-def scan_wifi_iperf_dl():
-    scan_wifi(extra={
-        "test_uuid": config["test_uuid"],
-        "corr_test": "iperf-dl"})
-
-
-def iperf_wifi_iperf_dl():
-    run_iperf(
-        test_uuid=config["test_uuid"],
-        server=config["iperf_server"],
-        port=randint(config["iperf_minport"],
-                     config["iperf_maxport"]),
-        direction="dl", duration=config["iperf_duration"],
-        dev="wlan0", timeout_s=config["timeout_s"])
-
-
-def scan_wifi_iperf_ul():
-    scan_wifi(extra={
-        "test_uuid": config["test_uuid"],
-        "corr_test": "iperf-ul"})
-
-
-def iperf_wifi_iperf_ul():
-    run_iperf(
-        test_uuid=config["test_uuid"],
-        server=config["iperf_server"],
-        port=randint(config["iperf_minport"],
-                     config["iperf_maxport"]),
-        direction="ul", duration=config["iperf_duration"],
-        dev="wlan0", timeout_s=config["timeout_s"])
-
-
-def scan_wifi_speedtest():
-    scan_wifi(extra={
-        "test_uuid": config["test_uuid"],
-        "corr_test": "speedtest"})
-
-
-def speedtest_wifi_speedtest():
-    run_speedtest(
-        test_uuid=config["test_uuid"],
-        timeout_s=config["timeout_s"])
-
-
 def main():
     while True:
         # Update config
@@ -357,18 +305,32 @@ def main():
                 set_interface("eth0", "down")
 
             # run_fmnc()        # Disabled while FMNC is down
-            run_cpu_tasks_in_parallel([
-                scan_wifi_iperf_dl,
-                iperf_wifi_iperf_dl
-            ])
-            run_cpu_tasks_in_parallel([
-                scan_wifi_iperf_ul,
-                iperf_wifi_iperf_ul
-            ])
-            run_cpu_tasks_in_parallel([
-                scan_wifi_speedtest,
-                speedtest_wifi_speedtest
-            ])
+            scan_wifi(extra={
+                "test_uuid": config["test_uuid"],
+                "corr_test": "iperf-dl"
+            })
+            run_iperf(test_uuid=config["test_uuid"],
+                      server=config["iperf_server"],
+                      port=randint(config["iperf_minport"],
+                                   config["iperf_maxport"]),
+                      direction="dl", duration=config["iperf_duration"],
+                      dev="wlan0", timeout_s=config["timeout_s"])
+            scan_wifi(extra={
+                "test_uuid": config["test_uuid"],
+                "corr_test": "iperf-ul"
+            })
+            run_iperf(test_uuid=config["test_uuid"],
+                      server=config["iperf_server"],
+                      port=randint(config["iperf_minport"],
+                                   config["iperf_maxport"]),
+                      direction="ul", duration=config["iperf_duration"],
+                      dev="wlan0", timeout_s=config["timeout_s"])
+            scan_wifi(extra={
+                "test_uuid": config["test_uuid"],
+                "corr_test": "speedtest"
+            })
+            run_speedtest(test_uuid=config["test_uuid"],
+                          timeout_s=config["timeout_s"])
 
             if (conn_status["eth"]):
                 set_interface("eth0", "up")
