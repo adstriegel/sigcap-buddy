@@ -59,4 +59,4 @@ if [[ ! $cron_list == *"pi-setup.sh"* ]] ; then
 fi
 
 # 8. Reset Wi-Fi connection
-nmcli --terse connection show | awk -F ":" '{if ($3 == "802-11-wireless") print $1}' | while read name; do sudo nmcli connection delete "$name"; done
+# nmcli --terse connection show | awk -F ":" '{if ($3 == "802-11-wireless") print $1}' | while read name; do sudo nmcli connection delete "$name"; done
