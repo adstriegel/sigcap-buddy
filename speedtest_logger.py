@@ -14,7 +14,7 @@ from random import randint
 import re
 import subprocess
 import time
-from uuid import getnode as get_mac, uuid4
+from uuid import uuid4
 import wifi_scan
 
 logdir = "/home/{}/sigcap-buddy/logs".format(getuser())
@@ -32,8 +32,15 @@ logging.basicConfig(
     level=logging.DEBUG
 )
 
-# Connected network MAC address (usually eth0)
-mac = "-".join(("%012X" % get_mac())[i:i + 2] for i in range(0, 12, 2))
+# Get eth0 MAC address
+mac = "00-00-00-00-00-00"
+try:
+    mac = open("/sys/class/net/eth0/address").readline()[0:17].upper().replace(
+        ":", "-")
+except Exception as e:
+    logging.error("Cannot retrieve eth0 MAC address: %s", e, exc_info=1)
+
+logging.info("eth0 MAC address: %s", mac)
 
 # Firebase setup
 cred = credentials.Certificate(
