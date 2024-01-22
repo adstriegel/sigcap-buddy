@@ -11,7 +11,7 @@ from logging.handlers import TimedRotatingFileHandler
 from logging import Formatter
 from pathlib import Path
 from random import randint
-import re
+import shlex
 import subprocess
 import time
 from uuid import uuid4
@@ -52,29 +52,11 @@ firebase_admin.initialize_app(cred, {
     "storageBucket": "nd-schmidt.appspot.com"
 })
 
-# Regexes
-re_nmcli_wifi = re.compile(r"wlan0 +wifi +disconnected")
-re_nmcli_eth = re.compile(r"eth0 +ethernet +disconnected")
-
 
 def read_config():
     logging.debug("Reading config.json.")
     with open("config.json", "r") as config_file:
         return json.load(config_file)
-
-
-config = read_config()
-# Random UUID to correlate WiFi scans and tests
-config["test_uuid"] = str(uuid4())
-
-
-def update_config():
-    temp_config = read_config()
-    for key in config:
-        if (key == "test_uuid"):
-            config[key] = str(uuid4())
-        elif key in temp_config:
-            config[key] = temp_config[key]
 
 
 def push_heartbeat(test_uuid):
@@ -87,48 +69,125 @@ def push_heartbeat(test_uuid):
     })
 
 
-def setup_network():
-    check_nmcli_cmd = ["sudo", "nmcli", "device", "status"]
-    logging.debug("Checking network device status: {}".format(
-        " ".join(check_nmcli_cmd)))
-    result = subprocess.check_output(check_nmcli_cmd).decode("utf-8")
-    eth_connected = (len(re_nmcli_eth.findall(result)) == 0)
-    wifi_connected = (len(re_nmcli_wifi.findall(result)) == 0)
-    logging.debug("Ethernet connected: {}".format(eth_connected))
-    logging.debug("Wi-Fi connected: {}".format(wifi_connected))
+def get_wifi_conn():
+    logging.info("Getting Wi-Fi connection from Firebase.")
+    wifi_ref = db.reference("wifi").order_by_child("mac").equal_to(
+        mac.replace("-", ":")).get()
+    if not wifi_ref:
+        logging.warning("Cannot find Wi-Fi info for %s", mac)
+        return False
+    else:
+        wifi_ref_key = list(wifi_ref.keys())[0]
+        logging.info("Got SSID: %s", wifi_ref[wifi_ref_key]["ssid"])
+        return wifi_ref[wifi_ref_key]
 
-    if (eth_connected is False):
-        # Try to connect eth
-        try:
-            eth_result = subprocess.check_output(
-                ["sudo", "nmcli", "device", "up", "eth0"]).decode("utf-8")
-            eth_connected = (eth_result.find("successfully") >= 0)
-            logging.debug("Eth connect success? {}".format(eth_connected))
-        except Exception as e:
-            logging.warning("Cannot bring eth0 up: %s", e, exc_info=1)
 
-    if (wifi_connected is False):
-        # Wi-Fi disconnected, try to get connection info and authenticate
-        wifi_ref = db.reference("wifi").order_by_child("mac").equal_to(
-            mac.replace("-", ":")).get()
-        if not wifi_ref:
-            logging.warning("Cannot find wifi info for {}".format(mac))
-        else:
-            wifi_ref_key = list(wifi_ref.keys())[0]
-            wifi_conn = wifi_ref[wifi_ref_key]
-            logging.debug("Got SSID: {}".format(wifi_conn["ssid"]))
-            try:
-                wifi_result = subprocess.check_output(
-                    ["sudo", "nmcli", "device", "wifi", "connect",
-                     wifi_conn["ssid"], "password",
-                     wifi_conn["pass"]]).decode("utf-8")
-                wifi_connected = (wifi_result.find("successfully") >= 0)
-                logging.debug("Wi-Fi connect success? {}".format(
-                    wifi_connected))
-            except Exception as e:
-                logging.warning("Cannot connect wlan0: %s", e, exc_info=1)
+def run_cmd(cmd, logging_prefix="Running command"):
+    logging.info("%s: %s.", logging_prefix, cmd)
+    args = shlex.split(cmd)
+    try:
+        result = subprocess.check_output(args).decode("utf-8")
+        logging.debug(result)
+        return result
+    except subprocess.CalledProcessError as e:
+        logging.warning("%s error: %s\n%s", logging_prefix, e,
+                        e.output, exc_info=1)
+        return ""
 
-    return {"eth": eth_connected, "wifi": wifi_connected}
+
+def set_interface_down(iface, conn=False):
+    logging.debug("Setting interface %s down.", iface)
+    if (conn):
+        run_cmd("sudo nmcli connection down {}".format(conn),
+                "Set connection {} down".format(conn))
+    run_cmd("sudo ip link set {} down".format(iface),
+            "Set interface {} link down".format(iface))
+
+
+def set_interface_up(iface, conn=False):
+    logging.debug("Setting interface %s up.", iface)
+    run_cmd("sudo ip link set {} up".format(iface),
+            "Set interface {} link up".format(iface))
+    if (conn):
+        time.sleep(3)
+        run_cmd("sudo nmcli connection up {}".format(conn),
+                "Set connection {} up".format(conn))
+
+
+def setup_network(wifi_conn):
+    # Set all interface link up, just in case
+    set_interface_up("eth0")
+    set_interface_up("wlan0")
+
+    # Check available eth and wlan connection in nmcli
+    wifi_connected = False
+    result = run_cmd("sudo nmcli --terse connection show",
+                     "Checking available connections")
+    for line in result.splitlines():
+        split = line.split(":")
+        if (split[2] == "802-11-wireless" and wifi_conn):
+            # Delete the connection if wifi_conn available from Firebase
+            # and the current connection is not wifi_conn
+            if (wifi_conn["ssid"] != split[0]):
+                # Delete the possibly unused connection
+                run_cmd("sudo nmcli connection delete {}".format(split[0]),
+                        "Deleting wlan connection {}".format(split[0]))
+            else:
+                # Otherwise the current connection is the correct one
+                result = run_cmd(
+                    "sudo nmcli connection up {}".format(split[0]),
+                    "Connecting wlan0 to SSID {}".format(split[0]))
+                wifi_connected = (result.find("successfully") >= 0)
+        elif (split[2] == "802-3-ethernet"):
+            # If the connection is ethernet, try to connect
+            run_cmd("sudo nmcli connection up {}".format(split[0]),
+                    "Connecting to ethernet {}".format(split[0]))
+
+    # Try connect Wi-Fi using info from Firebase
+    if (not wifi_connected and wifi_conn):
+        result = run_cmd(
+            "sudo nmcli device wifi connect {} password {}".format(
+                wifi_conn["ssid"], wifi_conn["pass"]),
+            "Adding SSID {}".format(wifi_conn["ssid"]))
+        wifi_connected = (result.find("successfully") >= 0)
+        if (wifi_connected):
+            # Put new connection down temporarily
+            run_cmd("sudo nmcli connection down {}".format(wifi_conn["ssid"]),
+                    "Setting connection {} down temp".format(
+                        wifi_conn["ssid"]))
+            # Ensure that the connection is active on wlan0
+            run_cmd(
+                ("nmcli connection modify {} "
+                 "connection.interface-name wlan0").format(
+                    wifi_conn["ssid"]),
+                "Setting connection {} to wlan0")
+            # If BSSID is in connection info, add it
+            if (wifi_conn["bssid"]):
+                run_cmd(
+                    ("nmcli connection modify {} "
+                     "802-11-wireless.bssid {}").format(
+                        wifi_conn["ssid"], wifi_conn["bssid"]),
+                    "Setting connection {} BSSID to {}".format(
+                        wifi_conn["ssid"], wifi_conn["bssid"]))
+            # Put new connection up
+            run_cmd("sudo nmcli connection up {}".format(wifi_conn["ssid"]),
+                    "Setting connection {} up".format(wifi_conn["ssid"]))
+
+    # Check all interfaces status
+    result = run_cmd("sudo nmcli --terse device status",
+                     "Checking network interfaces status")
+    eth_connection = False
+    wifi_connection = False
+    for line in result.splitlines():
+        split = line.split(":")
+        if (split[0] == "eth0"):
+            eth_connection = split[3]
+        elif (split[0] == "wlan0"):
+            wifi_connection = split[3]
+    logging.debug("eth0 connection: %s.", eth_connection)
+    logging.debug("wlan0 connection: %s.", wifi_connection)
+
+    return {"eth": eth_connection, "wifi": wifi_connection}
 
 
 def run_iperf(test_uuid, server, port, direction, duration, dev, timeout_s):
@@ -259,32 +318,28 @@ def upload_directory_with_transfer_manager(
                 Path("{}/{}".format(source_dir, name)).unlink()
 
 
-def set_interface(iface, state):
-    try:
-        logging.debug(subprocess.check_output(
-            ["sudo", "nmcli", "device", state,
-             iface]).decode("utf-8"))
-    except Exception as e:
-        logging.warning(
-            "Error while setting interface %s %s: %s",
-            iface, state, e, exc_info=1)
-
-
 def main():
     while True:
         # Update config
-        update_config()
+        config = read_config()
+        # Random UUID to correlate WiFi scans and tests
+        config["test_uuid"] = str(uuid4())
+        logging.info("Config: %s", config)
+        # WiFi connection
+        config["wifi_conn"] = get_wifi_conn()
+
+        # Ensure Ethernet and Wi-Fi are connected
+        conn_status = setup_network(config["wifi_conn"])
+        logging.info("Connection status: %s", conn_status)
 
         # Send heartbeat to indicate up status
         push_heartbeat(test_uuid=config["test_uuid"])
-        # Ensure Ethernet and Wi-Fi are connected
-        conn_status = setup_network()
 
         # Start tests over ethernet
         if (conn_status["eth"]):
-            logging.debug("Starting tests over ethernet")
+            logging.info("Starting tests over ethernet")
             if (conn_status["wifi"]):
-                set_interface("wlan0", "down")
+                set_interface_down("wlan0", conn_status["wifi"])
 
             # run_fmnc()        # Disabled while FMNC is down
             run_iperf(test_uuid=config["test_uuid"],
@@ -303,13 +358,13 @@ def main():
                           timeout_s=config["timeout_s"])
 
             if (conn_status["wifi"]):
-                set_interface("wlan0", "up")
+                set_interface_up("wlan0", conn_status["wifi"])
 
         # Start tests over Wi-Fi
         if (conn_status["wifi"]):
             logging.debug("Starting tests over Wi-Fi")
             if (conn_status["eth"]):
-                set_interface("eth0", "down")
+                set_interface_down("eth0", conn_status["eth"])
 
             # run_fmnc()        # Disabled while FMNC is down
             scan_wifi(extra={
@@ -340,7 +395,7 @@ def main():
                           timeout_s=config["timeout_s"])
 
             if (conn_status["eth"]):
-                set_interface("eth0", "up")
+                set_interface_up("eth0", conn_status["eth"])
         else:
             scan_wifi(extra={
                 "test_uuid": config["test_uuid"],
