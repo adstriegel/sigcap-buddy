@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
@@ -32,6 +32,8 @@ logging.basicConfig(
     level=logging.DEBUG
 )
 
+logging.info("Script started.")
+
 # Get eth0 MAC address
 mac = "00-00-00-00-00-00"
 try:
@@ -54,13 +56,13 @@ firebase_admin.initialize_app(cred, {
 
 
 def read_config():
-    logging.debug("Reading config.json.")
+    logging.info("Reading config.json.")
     with open("config.json", "r") as config_file:
         return json.load(config_file)
 
 
 def push_heartbeat(test_uuid):
-    logging.debug("Pushing heartbeat.")
+    logging.info("Pushing heartbeat with test_uuid=%s.", test_uuid)
     heartbeat_ref = db.reference("heartbeat")
     heartbeat_ref.push().set({
         "mac": mac,
@@ -115,6 +117,7 @@ def set_interface_up(iface, conn=False):
 
 
 def setup_network(wifi_conn):
+    logging.info("Setting up network.")
     # Set all interface link up, just in case
     set_interface_up("eth0")
     set_interface_up("wlan0")
@@ -196,7 +199,7 @@ def run_iperf(test_uuid, server, port, direction, duration, dev, timeout_s):
                  "-P", "8", "-b", "2000M", "-J"]
     if (direction == "dl"):
         iperf_cmd.append("-R")
-    logging.debug("Start iperf: {}".format(" ".join(iperf_cmd)))
+    logging.info("Start iperf: %s", " ".join(iperf_cmd))
 
     try:
         result = subprocess.check_output(
@@ -218,7 +221,7 @@ def run_iperf(test_uuid, server, port, direction, duration, dev, timeout_s):
 def run_speedtest(test_uuid, timeout_s):
     # Run the speedtest command
     speedtest_cmd = ["./speedtest", "--accept-license", "--format=json"]
-    logging.debug("Start speedtest: {}".format(" ".join(speedtest_cmd)))
+    logging.info("Start speedtest: %s", " ".join(speedtest_cmd))
 
     try:
         result = subprocess.check_output(
@@ -238,7 +241,7 @@ def run_speedtest(test_uuid, timeout_s):
 
 def scan_wifi(extra):
     # Run Wi-Fi scan
-    logging.debug("Starting Wi-Fi scan.")
+    logging.info("Starting Wi-Fi scan.")
     results = wifi_scan.scan()
     timestamp = datetime.now(timezone.utc).astimezone().isoformat()
 
@@ -262,7 +265,7 @@ def upload_directory_with_transfer_manager(
     other aspects of individual blob metadata), use
     transfer_manager.upload_many() instead.
     """
-    logging.debug("Uploading files.")
+    logging.info("Uploading files.")
 
     # The directory on your computer to upload. Files in the directory and its
     # subdirectories will be uploaded. An empty string means "the current
@@ -297,7 +300,7 @@ def upload_directory_with_transfer_manager(
     # Finally, convert them all to strings.
     string_paths = [str(path) for path in relative_paths]
 
-    logging.debug("Found {} files.".format(len(string_paths)))
+    logging.info("Found %d files.", len(string_paths))
 
     # Start the upload.
     results = transfer_manager.upload_many_from_filenames(
@@ -310,16 +313,20 @@ def upload_directory_with_transfer_manager(
         # in the input list, in order.
 
         if isinstance(result, Exception):
-            logging.warning("Failed to upload {} due to exception: {}".format(
-                name, result))
+            logging.warning("Failed to upload %s due to exception: %s.",
+                            name, result)
         else:
-            logging.debug("Uploaded {} to {}.".format(name, bucket.name))
+            logging.info("Uploaded %s.", name)
             if not (name.startswith("speedtest_logger.log")):
-                Path("{}/{}".format(source_dir, name)).unlink()
+                local_copy = Path("{}/{}".format(source_dir, name))
+                local_copy.unlink()
+                logging.info("Deleted local copy: %s.", local_copy)
 
 
 def main():
     while True:
+        logging.info("Starting tests.")
+
         # Update config
         config = read_config()
         # Random UUID to correlate WiFi scans and tests
@@ -337,7 +344,7 @@ def main():
 
         # Start tests over ethernet
         if (conn_status["eth"]):
-            logging.info("Starting tests over ethernet")
+            logging.info("Starting tests over eth0.")
             if (conn_status["wifi"]):
                 set_interface_down("wlan0", conn_status["wifi"])
 
@@ -362,7 +369,7 @@ def main():
 
         # Start tests over Wi-Fi
         if (conn_status["wifi"]):
-            logging.debug("Starting tests over Wi-Fi")
+            logging.info("Starting tests over Wi-Fi.")
             if (conn_status["eth"]):
                 set_interface_down("eth0", conn_status["eth"])
 
@@ -410,14 +417,17 @@ def main():
         interval = config["speedtest_interval"] * 60 + randint(0, 60)
         # Run heartbeat every minute if uptime is < 60 minutes
         while (time.clock_gettime(time.CLOCK_BOOTTIME) < 3600):
-            logging.debug("Sleeping for 60s")
+            logging.info("Sleeping for 60s")
             interval -= 60
             time.sleep(60)
             push_heartbeat(test_uuid="startup")
 
         # Avoid ValueError
         if (interval > 0):
-            logging.debug("Sleeping for {}s".format(interval))
+            logging.info("Sleeping for {}s, waking up at {}".format(
+                interval,
+                (datetime.now(timezone.utc).astimezone() + timedelta(
+                    0, interval)).isoformat()))
             time.sleep(interval)
 
 
