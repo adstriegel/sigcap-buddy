@@ -54,7 +54,7 @@ def run_cmd(cmd, logging_prefix="Running command"):
 
 
 def set_interface_down(iface, conn=False):
-    logging.debug("Setting interface %s down.", iface)
+    logging.info("Setting interface %s down.", iface)
     if (conn):
         run_cmd("sudo nmcli connection down {}".format(conn),
                 "Set connection {} down".format(conn))
@@ -63,7 +63,7 @@ def set_interface_down(iface, conn=False):
 
 
 def set_interface_up(iface, conn=False):
-    logging.debug("Setting interface %s up.", iface)
+    logging.info("Setting interface %s up.", iface)
     run_cmd("sudo ip link set {} up".format(iface),
             "Set interface {} link up".format(iface))
     if (conn):
@@ -74,6 +74,7 @@ def set_interface_up(iface, conn=False):
 
 def setup_network(wifi_conn):
     logging.info("Setting up network.")
+
     # Set all interface link up, just in case
     set_interface_up("eth0")
     set_interface_up("wlan0")
