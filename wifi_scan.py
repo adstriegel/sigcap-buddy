@@ -1,6 +1,5 @@
-import logging
 import re
-import subprocess
+import utils
 
 re_sub = re.compile(r"\s+")
 
@@ -165,32 +164,26 @@ def read_beacon_ie(ie_hex_string):
 
 def scan(iface="wlan0"):
     # Get connected BSSID
-    result_conn = ""
     conn_bssid = ""
-    try:
-        result_conn = subprocess.check_output(
-            ["sudo", "iw", "dev", iface, "link"]).decode('utf-8')
-    except Exception as e:
-        logging.warning("get connected wifi failed: %s", e, exc_info=1)
-    if (result_conn != ""):
+    result_conn = utils.run_cmd(
+        "sudo iw dev {} link".format(iface),
+        "Get connected Wi-Fi")
+    if (result_conn):
         re_connected = re.compile(
             r"Connected to *([\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}) *\(on %s\)" % iface)
         matches = re_connected.findall(result_conn)
         if (len(matches) > 0):
             conn_bssid = matches[0].upper()
 
-    # Scan wifi beacons
-    results = ""
-    try:
-        results = subprocess.check_output(
-            ["sudo", "iwlist", iface, "scanning"]).decode('utf-8')
-    except Exception as e:
-        logging.warning("wifi scan failed: %s", e, exc_info=1)
-        return []
+    # Scan Wi-Fi beacons
+    results = utils.run_cmd(
+        "sudo iwlist {} scanning".format(iface),
+        "Scanning Wi-Fi beacons",
+        log_result=False)
 
+    # Process Wi-Fi scan results
     results = re_sub.sub(" ", results).split("Cell")
     cells = []
-
     for entry in results:
         cell = {
             "bssid": "",

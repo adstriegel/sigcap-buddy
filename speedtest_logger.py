@@ -6,9 +6,8 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 from logging import Formatter
 from random import randint
-import shlex
-import subprocess
 import time
+import utils
 from uuid import uuid4
 import wifi_scan
 
@@ -40,36 +39,23 @@ except Exception as e:
 logging.info("eth0 MAC address: %s", mac)
 
 
-def run_cmd(cmd, logging_prefix="Running command"):
-    logging.info("%s: %s.", logging_prefix, cmd)
-    args = shlex.split(cmd)
-    try:
-        result = subprocess.check_output(args).decode("utf-8")
-        logging.debug(result)
-        return result
-    except subprocess.CalledProcessError as e:
-        logging.warning("%s error: %s\n%s", logging_prefix, e,
-                        e.output, exc_info=1)
-        return ""
-
-
 def set_interface_down(iface, conn=False):
     logging.info("Setting interface %s down.", iface)
     if (conn):
-        run_cmd("sudo nmcli connection down {}".format(conn),
-                "Set connection {} down".format(conn))
-    run_cmd("sudo ip link set {} down".format(iface),
-            "Set interface {} link down".format(iface))
+        utils.run_cmd("sudo nmcli connection down {}".format(conn),
+                      "Set connection {} down".format(conn))
+    utils.run_cmd("sudo ip link set {} down".format(iface),
+                  "Set interface {} link down".format(iface))
 
 
 def set_interface_up(iface, conn=False):
     logging.info("Setting interface %s up.", iface)
-    run_cmd("sudo ip link set {} up".format(iface),
-            "Set interface {} link up".format(iface))
+    utils.run_cmd("sudo ip link set {} up".format(iface),
+                  "Set interface {} link up".format(iface))
     if (conn):
         time.sleep(3)
-        run_cmd("sudo nmcli connection up {}".format(conn),
-                "Set connection {} up".format(conn))
+        utils.run_cmd("sudo nmcli connection up {}".format(conn),
+                      "Set connection {} up".format(conn))
 
 
 def setup_network(wifi_conn):
@@ -81,8 +67,8 @@ def setup_network(wifi_conn):
 
     # Check available eth and wlan connection in nmcli
     wifi_connected = False
-    result = run_cmd("sudo nmcli --terse connection show",
-                     "Checking available connections")
+    result = utils.run_cmd("sudo nmcli --terse connection show",
+                           "Checking available connections")
     for line in result.splitlines():
         split = line.split(":")
         if (split[2] == "802-11-wireless" and wifi_conn):
@@ -90,52 +76,55 @@ def setup_network(wifi_conn):
             # and the current connection is not wifi_conn
             if (wifi_conn["ssid"] != split[0]):
                 # Delete the possibly unused connection
-                run_cmd("sudo nmcli connection delete {}".format(split[0]),
-                        "Deleting wlan connection {}".format(split[0]))
+                utils.run_cmd(("sudo nmcli connection "
+                               "delete {}").format(split[0]),
+                              "Deleting wlan connection {}".format(split[0]))
             else:
                 # Otherwise the current connection is the correct one
-                result = run_cmd(
+                result = utils.run_cmd(
                     "sudo nmcli connection up {}".format(split[0]),
                     "Connecting wlan0 to SSID {}".format(split[0]))
                 wifi_connected = (result.find("successfully") >= 0)
         elif (split[2] == "802-3-ethernet"):
             # If the connection is ethernet, try to connect
-            run_cmd("sudo nmcli connection up {}".format(split[0]),
-                    "Connecting to ethernet {}".format(split[0]))
+            utils.run_cmd("sudo nmcli connection up {}".format(split[0]),
+                          "Connecting to ethernet {}".format(split[0]))
 
     # Try connect Wi-Fi using info from Firebase
     if (not wifi_connected and wifi_conn):
-        result = run_cmd(
+        result = utils.run_cmd(
             "sudo nmcli device wifi connect {} password {}".format(
                 wifi_conn["ssid"], wifi_conn["pass"]),
             "Adding SSID {}".format(wifi_conn["ssid"]))
         wifi_connected = (result.find("successfully") >= 0)
         if (wifi_connected):
             # Put new connection down temporarily
-            run_cmd("sudo nmcli connection down {}".format(wifi_conn["ssid"]),
-                    "Setting connection {} down temp".format(
-                        wifi_conn["ssid"]))
+            utils.run_cmd(("sudo nmcli connection "
+                           "down {}").format(wifi_conn["ssid"]),
+                          ("Setting connection {} "
+                           "down temporarily").format(wifi_conn["ssid"]))
             # Ensure that the connection is active on wlan0
-            run_cmd(
+            utils.run_cmd(
                 ("nmcli connection modify {} "
                  "connection.interface-name wlan0").format(
                     wifi_conn["ssid"]),
                 "Setting connection {} to wlan0")
             # If BSSID is in connection info, add it
             if (wifi_conn["bssid"]):
-                run_cmd(
+                utils.run_cmd(
                     ("nmcli connection modify {} "
                      "802-11-wireless.bssid {}").format(
                         wifi_conn["ssid"], wifi_conn["bssid"]),
                     "Setting connection {} BSSID to {}".format(
                         wifi_conn["ssid"], wifi_conn["bssid"]))
             # Put new connection up
-            run_cmd("sudo nmcli connection up {}".format(wifi_conn["ssid"]),
-                    "Setting connection {} up".format(wifi_conn["ssid"]))
+            utils.run_cmd(("sudo nmcli connection "
+                           "up {}").format(wifi_conn["ssid"]),
+                          "Setting connection {} up".format(wifi_conn["ssid"]))
 
     # Check all interfaces status
-    result = run_cmd("sudo nmcli --terse device status",
-                     "Checking network interfaces status")
+    result = utils.run_cmd("sudo nmcli --terse device status",
+                           "Checking network interfaces status")
     eth_connection = False
     wifi_connection = False
     for line in result.splitlines():
@@ -152,16 +141,17 @@ def setup_network(wifi_conn):
 
 def run_iperf(test_uuid, server, port, direction, duration, dev, timeout_s):
     # Run iperf command
-    iperf_cmd = ["iperf3", "-c", server, "-p", str(port), "-t", str(duration),
-                 "-P", "8", "-b", "2000M", "-J"]
+    iperf_cmd = ("iperf3 -c {} -p {} -t {} -P 8 -b 2000M -J").format(
+        server, port, duration)
     if (direction == "dl"):
-        iperf_cmd.append("-R")
-    logging.info("Start iperf: %s", " ".join(iperf_cmd))
+        iperf_cmd += " -R"
+    result = utils.run_cmd(
+        iperf_cmd,
+        "Running iperf command",
+        log_result=False,
+        timeout_s=timeout_s)
 
-    try:
-        result = subprocess.check_output(
-            iperf_cmd,
-            timeout=timeout_s).decode("utf-8")
+    if (result):
         result_json = json.loads(result)
         result_json["start"]["interface"] = dev
         result_json["start"]["test_uuid"] = test_uuid
@@ -171,19 +161,17 @@ def run_iperf(test_uuid, server, port, direction, duration, dev, timeout_s):
             datetime.now(timezone.utc).astimezone().isoformat()
         ), "w") as log_file:
             log_file.write(json.dumps(result_json))
-    except Exception as e:
-        logging.warning("Error while running iperf: %s", e, exc_info=1)
 
 
 def run_speedtest(test_uuid, timeout_s):
     # Run the speedtest command
-    speedtest_cmd = ["./speedtest", "--accept-license", "--format=json"]
-    logging.info("Start speedtest: %s", " ".join(speedtest_cmd))
+    result = utils.run_cmd(
+        "./speedtest --accept-license --format=json",
+        "Running speedtest command",
+        log_result=False,
+        timeout_s=timeout_s)
 
-    try:
-        result = subprocess.check_output(
-            speedtest_cmd,
-            timeout=timeout_s).decode("utf-8")
+    if (result):
         result_json = json.loads(result)
         result_json["test_uuid"] = test_uuid
 
@@ -192,8 +180,6 @@ def run_speedtest(test_uuid, timeout_s):
             datetime.now(timezone.utc).astimezone().isoformat()
         ), "w") as log_file:
             log_file.write(json.dumps(result_json))
-    except Exception as e:
-        logging.warning("Error while running speedtest: %s", e, exc_info=1)
 
 
 def scan_wifi(extra):
