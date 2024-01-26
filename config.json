@@ -1,4 +1,6 @@
 {
+    "monitor_interface": "wlan0",
+    "wireless_interface": "wlan1",
     "speedtest_interval": 60,
     "upload_interval": 0,
     "iperf_server": "ns-mn1.cse.nd.edu",
