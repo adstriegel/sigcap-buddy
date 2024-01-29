@@ -257,6 +257,11 @@ def scan_wifi(iface, extra):
 
 
 def main():
+    logging.info("Upload previously recorded logs on startup.")
+    firebase.upload_directory_with_transfer_manager(
+        source_dir=logdir,
+        mac=mac)
+
     while True:
         logging.info("Starting tests.")
 
