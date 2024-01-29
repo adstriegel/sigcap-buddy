@@ -165,33 +165,32 @@ def read_beacon_ie(ie_hex_string):
     return output
 
 
-def scan(iface="wlan0"):
-    # Get connected BSSID
-    conn_bssid = ""
+def process_link(result):
+    # Get connected BSSID and bitrate
+    bssid = ""
     tx_bitrate = ""
     rx_bitrate = ""
-    result_conn = utils.run_cmd(
-        "sudo iw dev {} link".format(iface),
-        "Get connected Wi-Fi")
-    if (result_conn):
+    if (result):
         re_connected = re.compile(
-            r"Connected to *([\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}) *\(on %s\)" % iface)
-        matches = re_connected.findall(result_conn)
+            r"Connected to *([\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2}:[\da-f]{2})")
+        matches = re_connected.findall(result)
         if (len(matches) > 0):
-            conn_bssid = matches[0].upper()
-        matches = re_tx_bitrate.findall(result_conn)
+            bssid = matches[0].upper()
+        matches = re_tx_bitrate.findall(result)
         if (len(matches) > 0):
             tx_bitrate = matches[0]
-        matches = re_rx_bitrate.findall(result_conn)
+        matches = re_rx_bitrate.findall(result)
         if (len(matches) > 0):
             rx_bitrate = matches[0]
 
-    # Scan Wi-Fi beacons
-    results = utils.run_cmd(
-        "sudo iwlist {} scanning".format(iface),
-        "Scanning Wi-Fi beacons",
-        log_result=False)
+    return {
+        "bssid": bssid,
+        "tx_bitrate": tx_bitrate,
+        "rx_bitrate": rx_bitrate,
+    }
 
+
+def process_scan_results(results, wifi_link):
     # Process Wi-Fi scan results
     results = re_sub.sub(" ", results).split("Cell")
     cells = []
@@ -223,13 +222,54 @@ def scan(iface="wlan0"):
                     cell[key] = matches[0]
 
         if cell["bssid"] != "":
-            if cell["bssid"] == conn_bssid:
+            if cell["bssid"] == wifi_link["bssid"]:
                 cell["connected"] = True
-                cell["tx_bitrate"] = tx_bitrate
-                cell["rx_bitrate"] = rx_bitrate
+                cell["tx_bitrate"] = wifi_link["tx_bitrate"]
+                cell["rx_bitrate"] = wifi_link["rx_bitrate"]
             cells.append(cell)
 
     return cells
+
+
+def scan(iface="wlan0"):
+    # Scan Wi-Fi beacons
+    results = utils.run_cmd(
+        "sudo iwlist {} scanning".format(iface),
+        "Scanning Wi-Fi beacons",
+        log_result=False)
+
+    # Get Wi-Fi link
+    result_conn = utils.run_cmd(
+        "sudo iw dev {} link".format(iface),
+        "Get connected Wi-Fi")
+
+    return process_scan_results(results, process_link(result_conn))
+
+
+def scan_async(iface, link_wait):
+    # Start scanning asynchronously
+    # Run "iw dev link" after sleeping to capture connected state at perf test
+    return {
+        "scan": utils.run_cmd_async(
+            "sudo iwlist {} scanning".format(iface),
+            "Scanning Wi-Fi beacons asynchronously"),
+        "link": utils.run_cmd_async(
+            "sleep {}; sudo iw dev {} link".format(link_wait, iface),
+            "Get connected Wi-Fi link")
+    }
+
+
+def resolve_scan_async(proc_obj):
+    results = utils.resolve_cmd_async(
+        proc_obj["scan"],
+        "Resolving Wi-Fi beacon scan",
+        log_result=False)
+    result_conn = utils.resolve_cmd_async(
+        proc_obj["link"],
+        "Resolving Wi-Fi link",
+        log_result=False)
+
+    return process_scan_results(results, process_link(result_conn))
 
 
 if __name__ == '__main__':

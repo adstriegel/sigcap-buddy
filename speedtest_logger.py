@@ -256,6 +256,31 @@ def scan_wifi(iface, extra):
                 "beacons": results}))
 
 
+def scan_wifi_async(iface, link_wait=1):
+    # Run Wi-Fi scan
+    logging.info("Starting Wi-Fi scan.")
+    return {
+        "proc_obj": wifi_scan.scan_async(iface, link_wait),
+        "timestamp": datetime.now(timezone.utc).astimezone().isoformat(),
+        "iface": iface
+    }
+
+
+def resolve_scan_wifi_async(resolve_obj, extra):
+    logging.info("Resolving Wi-Fi scan.")
+    results = wifi_scan.resolve_scan_async(resolve_obj["proc_obj"])
+
+    # Log this data
+    with open("logs/wifi-scan/{}.json".format(
+              resolve_obj["timestamp"]), "w") as log_file:
+        log_file.write(
+            json.dumps({
+                "timestamp": resolve_obj["timestamp"],
+                "interface": resolve_obj["iface"],
+                "extra": extra,
+                "beacons": results}))
+
+
 def main():
     logging.info("Upload previously recorded logs on startup.")
     firebase.upload_directory_with_transfer_manager(
@@ -290,19 +315,26 @@ def main():
                 set_interface_down(config["wireless_interface"],
                                    conn_status["wifi"])
 
-            # run_fmnc()        # Disabled while FMNC is down
+            # Disabled while FMNC is down
+            # run_fmnc()
+
+            # iperf downlink
             run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
                                    config["iperf_maxport"]),
                       direction="dl", duration=config["iperf_duration"],
                       dev="eth0", timeout_s=config["timeout_s"])
+
+            # iperf uplink
             run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
                                    config["iperf_maxport"]),
                       direction="ul", duration=config["iperf_duration"],
                       dev="eth0", timeout_s=config["timeout_s"])
+
+            # Ookla Speedtest
             run_speedtest(test_uuid=config["test_uuid"],
                           timeout_s=config["timeout_s"])
 
@@ -316,12 +348,11 @@ def main():
             if (conn_status["eth"]):
                 set_interface_down("eth0", conn_status["eth"])
 
-            # run_fmnc()        # Disabled while FMNC is down
-            scan_wifi(
-                config["wireless_interface"],
-                extra={
-                    "test_uuid": config["test_uuid"],
-                    "corr_test": "iperf-dl"})
+            # Disabled while FMNC is down
+            # run_fmnc()
+
+            # iperf downlink
+            resolve_obj = scan_wifi_async(config["wireless_interface"])
             run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
@@ -329,11 +360,14 @@ def main():
                       direction="dl", duration=config["iperf_duration"],
                       dev=config["wireless_interface"],
                       timeout_s=config["timeout_s"])
-            scan_wifi(
-                config["wireless_interface"],
+            resolve_scan_wifi_async(
+                resolve_obj,
                 extra={
                     "test_uuid": config["test_uuid"],
-                    "corr_test": "iperf-ul"})
+                    "corr_test": "iperf-dl"})
+
+            # iperf uplink
+            resolve_obj = scan_wifi_async(config["wireless_interface"])
             run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
@@ -341,13 +375,21 @@ def main():
                       direction="ul", duration=config["iperf_duration"],
                       dev=config["wireless_interface"],
                       timeout_s=config["timeout_s"])
-            scan_wifi(
-                config["wireless_interface"],
+            resolve_scan_wifi_async(
+                resolve_obj,
+                extra={
+                    "test_uuid": config["test_uuid"],
+                    "corr_test": "iperf-ul"})
+
+            # Ookla Speedtest
+            resolve_obj = scan_wifi_async(config["wireless_interface"])
+            run_speedtest(test_uuid=config["test_uuid"],
+                          timeout_s=config["timeout_s"])
+            resolve_scan_wifi_async(
+                resolve_obj,
                 extra={
                     "test_uuid": config["test_uuid"],
                     "corr_test": "speedtest"})
-            run_speedtest(test_uuid=config["test_uuid"],
-                          timeout_s=config["timeout_s"])
 
             if (conn_status["eth"]):
                 set_interface_up("eth0", conn_status["eth"])
