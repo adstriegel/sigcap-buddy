@@ -58,15 +58,43 @@ def set_interface_up(iface, conn=False):
                       "Set connection {} up".format(conn))
 
 
-def setup_network(wifi_conn):
+def enable_monitor(iface):
+    logging.info("Enabling interface %s as monitor.", iface)
+    is_monitor = "monitor" in (
+        utils.run_cmd("sudo iw dev {} info".format(iface),
+                      "Checking iface {} info".format(iface)))
+    logging.info("{} is monitor? {}".format(iface, is_monitor))
+    if (not is_monitor):
+        set_interface_down(iface)
+        utils.run_cmd("sudo iw dev {} set type monitor".format(iface),
+                      "Set interface {} as monitor".format(iface))
+    set_interface_up(iface)
+
+
+def disable_monitor(iface):
+    logging.info("Disabling interface %s as monitor.", iface)
+    is_monitor = "monitor" in (
+        utils.run_cmd("sudo iw dev {} info".format(iface),
+                      "Checking iface {} info".format(iface)))
+    logging.info("{} is monitor? {}".format(iface, is_monitor))
+    if (is_monitor):
+        set_interface_down(iface)
+        utils.run_cmd("sudo iw dev {} set type managed".format(iface),
+                      "Set interface {} as managed".format(iface))
+    set_interface_up(iface)
+
+
+def setup_network(wifi_conn, wireless_iface, monitor_iface):
     logging.info("Setting up network.")
 
     # Set all interface link up, just in case
     set_interface_up("eth0")
-    set_interface_up("wlan0")
+    set_interface_up(wireless_iface)
+    disable_monitor(wireless_iface)
+    enable_monitor(monitor_iface)
 
     # Check available eth and wlan connection in nmcli
-    wifi_connected = False
+    conn_found = False
     result = utils.run_cmd("sudo nmcli --terse connection show",
                            "Checking available connections")
     for line in result.splitlines():
@@ -80,47 +108,68 @@ def setup_network(wifi_conn):
                                "delete {}").format(split[0]),
                               "Deleting wlan connection {}".format(split[0]))
             else:
-                # Otherwise the current connection is the correct one
-                result = utils.run_cmd(
-                    "sudo nmcli connection up {}".format(split[0]),
-                    "Connecting wlan0 to SSID {}".format(split[0]))
-                wifi_connected = (result.find("successfully") >= 0)
+                # Otherwise the connection is found
+                conn_found = True
         elif (split[2] == "802-3-ethernet"):
             # If the connection is ethernet, try to connect
             utils.run_cmd("sudo nmcli connection up {}".format(split[0]),
                           "Connecting to ethernet {}".format(split[0]))
 
     # Try connect Wi-Fi using info from Firebase
-    if (not wifi_connected and wifi_conn):
+    if (not conn_found and wifi_conn):
         result = utils.run_cmd(
             "sudo nmcli device wifi connect {} password {}".format(
                 wifi_conn["ssid"], wifi_conn["pass"]),
             "Adding SSID {}".format(wifi_conn["ssid"]))
-        wifi_connected = (result.find("successfully") >= 0)
-        if (wifi_connected):
-            # Put new connection down temporarily
+        conn_found = (result.find("successfully") >= 0)
+
+    if (conn_found):
+        # Check if connection need editing.
+        conn_iface = utils.run_cmd(
+            ("sudo nmcli --fields connection.interface-name connection "
+             "show {}").format(wifi_conn["ssid"]),
+            "Check connection {} interface".format(wifi_conn["ssid"]))
+        edit_iface = wireless_iface not in conn_iface
+        logging.debug("Edit connection %s interface? %s",
+                      wifi_conn["ssid"], edit_iface)
+        edit_bssid = False
+        if ("bssid" in wifi_conn and wifi_conn["bssid"]):
+            conn_iface = utils.run_cmd(
+                ("sudo nmcli --fields 802-11-wireless.bssid connection "
+                 "show {}").format(wifi_conn["ssid"]),
+                "Check connection {} interface".format(wifi_conn["ssid"]))
+            edit_bssid = wifi_conn["bssid"] not in conn_iface
+            logging.debug("Edit connection %s BSSID? %s",
+                          wifi_conn["ssid"], edit_bssid)
+
+        if (edit_bssid or edit_iface):
+            # Put new connection down temporarily for editing
             utils.run_cmd(("sudo nmcli connection "
                            "down {}").format(wifi_conn["ssid"]),
                           ("Setting connection {} "
                            "down temporarily").format(wifi_conn["ssid"]))
-            # Ensure that the connection is active on wlan0
-            utils.run_cmd(
-                ("nmcli connection modify {} "
-                 "connection.interface-name wlan0").format(
-                    wifi_conn["ssid"]),
-                "Setting connection {} to wlan0")
-            # If BSSID is in connection info, add it
-            if (wifi_conn["bssid"]):
+            # Ensure that the connection is active on selected iface
+            if (edit_iface):
                 utils.run_cmd(
-                    ("nmcli connection modify {} "
+                    ("sudo nmcli connection modify {} "
+                     "connection.interface-name {}").format(
+                        wifi_conn["ssid"], wireless_iface),
+                    "Setting connection {} to {}".format(
+                        wifi_conn["ssid"], wireless_iface))
+            # If BSSID is in connection info, add it
+            if (edit_bssid):
+                utils.run_cmd(
+                    ("sudo nmcli connection modify {} "
                      "802-11-wireless.bssid {}").format(
                         wifi_conn["ssid"], wifi_conn["bssid"]),
                     "Setting connection {} BSSID to {}".format(
                         wifi_conn["ssid"], wifi_conn["bssid"]))
-            # Put new connection up
-            utils.run_cmd(("sudo nmcli connection "
-                           "up {}").format(wifi_conn["ssid"]),
-                          "Setting connection {} up".format(wifi_conn["ssid"]))
+
+        # Activate connection, should run whether the connection is up or down
+        utils.run_cmd(("sudo nmcli connection "
+                       "up {}").format(wifi_conn["ssid"]),
+                      ("Setting connection {} "
+                       "up").format(wifi_conn["ssid"]))
 
     # Check all interfaces status
     result = utils.run_cmd("sudo nmcli --terse device status",
@@ -131,10 +180,10 @@ def setup_network(wifi_conn):
         split = line.split(":")
         if (split[0] == "eth0"):
             eth_connection = split[3]
-        elif (split[0] == "wlan0"):
+        elif (split[0] == wireless_iface):
             wifi_connection = split[3]
     logging.debug("eth0 connection: %s.", eth_connection)
-    logging.debug("wlan0 connection: %s.", wifi_connection)
+    logging.debug("%s connection: %s.", wireless_iface, wifi_connection)
 
     return {"eth": eth_connection, "wifi": wifi_connection}
 
@@ -182,10 +231,10 @@ def run_speedtest(test_uuid, timeout_s):
             log_file.write(json.dumps(result_json))
 
 
-def scan_wifi(extra):
+def scan_wifi(iface, extra):
     # Run Wi-Fi scan
     logging.info("Starting Wi-Fi scan.")
-    results = wifi_scan.scan()
+    results = wifi_scan.scan(iface)
     timestamp = datetime.now(timezone.utc).astimezone().isoformat()
 
     # Log this data
@@ -193,6 +242,7 @@ def scan_wifi(extra):
         log_file.write(
             json.dumps({
                 "timestamp": timestamp,
+                "interface": iface,
                 "extra": extra,
                 "beacons": results}))
 
@@ -210,7 +260,10 @@ def main():
         config["wifi_conn"] = firebase.get_wifi_conn(mac)
 
         # Ensure Ethernet and Wi-Fi are connected
-        conn_status = setup_network(config["wifi_conn"])
+        conn_status = setup_network(
+            config["wifi_conn"],
+            config["wireless_interface"],
+            config["monitor_interface"])
         logging.info("Connection status: %s", conn_status)
 
         # Send heartbeat to indicate up status
@@ -220,7 +273,8 @@ def main():
         if (conn_status["eth"]):
             logging.info("Starting tests over eth0.")
             if (conn_status["wifi"]):
-                set_interface_down("wlan0", conn_status["wifi"])
+                set_interface_down(config["wireless_interface"],
+                                   conn_status["wifi"])
 
             # run_fmnc()        # Disabled while FMNC is down
             run_iperf(test_uuid=config["test_uuid"],
@@ -239,7 +293,8 @@ def main():
                           timeout_s=config["timeout_s"])
 
             if (conn_status["wifi"]):
-                set_interface_up("wlan0", conn_status["wifi"])
+                set_interface_up(config["wireless_interface"],
+                                 conn_status["wifi"])
 
         # Start tests over Wi-Fi
         if (conn_status["wifi"]):
@@ -248,40 +303,46 @@ def main():
                 set_interface_down("eth0", conn_status["eth"])
 
             # run_fmnc()        # Disabled while FMNC is down
-            scan_wifi(extra={
-                "test_uuid": config["test_uuid"],
-                "corr_test": "iperf-dl"
-            })
+            scan_wifi(
+                config["wireless_interface"],
+                extra={
+                    "test_uuid": config["test_uuid"],
+                    "corr_test": "iperf-dl"})
             run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
                                    config["iperf_maxport"]),
                       direction="dl", duration=config["iperf_duration"],
-                      dev="wlan0", timeout_s=config["timeout_s"])
-            scan_wifi(extra={
-                "test_uuid": config["test_uuid"],
-                "corr_test": "iperf-ul"
-            })
+                      dev=config["wireless_interface"],
+                      timeout_s=config["timeout_s"])
+            scan_wifi(
+                config["wireless_interface"],
+                extra={
+                    "test_uuid": config["test_uuid"],
+                    "corr_test": "iperf-ul"})
             run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
                                    config["iperf_maxport"]),
                       direction="ul", duration=config["iperf_duration"],
-                      dev="wlan0", timeout_s=config["timeout_s"])
-            scan_wifi(extra={
-                "test_uuid": config["test_uuid"],
-                "corr_test": "speedtest"
-            })
+                      dev=config["wireless_interface"],
+                      timeout_s=config["timeout_s"])
+            scan_wifi(
+                config["wireless_interface"],
+                extra={
+                    "test_uuid": config["test_uuid"],
+                    "corr_test": "speedtest"})
             run_speedtest(test_uuid=config["test_uuid"],
                           timeout_s=config["timeout_s"])
 
             if (conn_status["eth"]):
                 set_interface_up("eth0", conn_status["eth"])
         else:
-            scan_wifi(extra={
-                "test_uuid": config["test_uuid"],
-                "corr_test": "none"
-            })
+            scan_wifi(
+                config["wireless_interface"],
+                extra={
+                    "test_uuid": config["test_uuid"],
+                    "corr_test": "none"})
 
         # Upload
         # TODO: Might run on a different interval in the future.

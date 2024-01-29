@@ -17,3 +17,33 @@ def run_cmd(cmd, logging_prefix="Running command", log_result=True,
         logging.warning("%s error: %s\n%s", logging_prefix, e,
                         e.output, exc_info=1)
         return ""
+    except Exception as e:
+        logging.warning("%s error: %s", logging_prefix, e, exc_info=1)
+        return ""
+
+
+def run_cmd_async(cmd, logging_prefix="Running async command"):
+    logging.info("%s: %s.", logging_prefix, cmd)
+    args = shlex.split(cmd)
+    return subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+
+
+def resolve_cmd_async(proc, logging_prefix="Resolving async command",
+                      log_result=True, timeout_s=None):
+    try:
+        returncode = proc.wait(timeout=timeout_s)
+        if (returncode == 0):
+            result = proc.stdout.read().decode("utf8")
+            if (log_result):
+                logging.debug(result)
+            return result
+        else:
+            logging.warning("%s error:\n%s", logging_prefix,
+                            proc.stderr.read().decode("utf8"))
+            return ""
+    except Exception as e:
+        logging.warning("%s error: %s", logging_prefix, e, exc_info=1)
+        return ""
