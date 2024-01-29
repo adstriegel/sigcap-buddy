@@ -9,13 +9,13 @@ def run_cmd(cmd, logging_prefix="Running command", log_result=True,
     args = shlex.split(cmd)
     try:
         result = subprocess.check_output(
-            args, timeout=timeout_s).decode("utf-8")
+            args, timeout=timeout_s, stderr=subprocess.PIPE).decode("utf-8")
         if (log_result):
             logging.debug(result)
         return result
     except subprocess.CalledProcessError as e:
-        logging.warning("%s error: %s\n%s", logging_prefix, e,
-                        e.output, exc_info=1)
+        logging.warning("%s error: %s\nOutput: %s", logging_prefix, e,
+                        e.stderr.decode("utf-8"), exc_info=1)
         return ""
     except Exception as e:
         logging.warning("%s error: %s", logging_prefix, e, exc_info=1)
@@ -36,13 +36,13 @@ def resolve_cmd_async(proc, logging_prefix="Resolving async command",
     try:
         returncode = proc.wait(timeout=timeout_s)
         if (returncode == 0):
-            result = proc.stdout.read().decode("utf8")
+            result = proc.stdout.read().decode("utf-8")
             if (log_result):
                 logging.debug(result)
             return result
         else:
             logging.warning("%s error:\n%s", logging_prefix,
-                            proc.stderr.read().decode("utf8"))
+                            proc.stderr.read().decode("utf-8"))
             return ""
     except Exception as e:
         logging.warning("%s error: %s", logging_prefix, e, exc_info=1)
