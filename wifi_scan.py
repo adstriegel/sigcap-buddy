@@ -13,6 +13,9 @@ re_patterns = {
     "extras": re.compile(r"IE: +Unknown: +([0-9A-F]+)")
 }
 
+re_tx_bitrate = re.compile(r"tx bitrate: *(.+)")
+re_rx_bitrate = re.compile(r"rx bitrate: *(.+)")
+
 
 def byte_uint_to_int(byte_uint):
     out = byte_uint
@@ -165,6 +168,8 @@ def read_beacon_ie(ie_hex_string):
 def scan(iface="wlan0"):
     # Get connected BSSID
     conn_bssid = ""
+    tx_bitrate = ""
+    rx_bitrate = ""
     result_conn = utils.run_cmd(
         "sudo iw dev {} link".format(iface),
         "Get connected Wi-Fi")
@@ -174,6 +179,12 @@ def scan(iface="wlan0"):
         matches = re_connected.findall(result_conn)
         if (len(matches) > 0):
             conn_bssid = matches[0].upper()
+        matches = re_tx_bitrate.findall(result_conn)
+        if (len(matches) > 0):
+            tx_bitrate = matches[0]
+        matches = re_rx_bitrate.findall(result_conn)
+        if (len(matches) > 0):
+            rx_bitrate = matches[0]
 
     # Scan Wi-Fi beacons
     results = utils.run_cmd(
@@ -193,6 +204,8 @@ def scan(iface="wlan0"):
             "ssid": "",
             "connected": False,
             "rates": [],
+            "tx_bitrate": "",
+            "rx_bitrate": "",
             "extras": []
         }
 
@@ -212,6 +225,8 @@ def scan(iface="wlan0"):
         if cell["bssid"] != "":
             if cell["bssid"] == conn_bssid:
                 cell["connected"] = True
+                cell["tx_bitrate"] = tx_bitrate
+                cell["rx_bitrate"] = rx_bitrate
             cells.append(cell)
 
     return cells
