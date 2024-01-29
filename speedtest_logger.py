@@ -53,9 +53,18 @@ def set_interface_up(iface, conn=False):
     utils.run_cmd("sudo ip link set {} up".format(iface),
                   "Set interface {} link up".format(iface))
     if (conn):
-        time.sleep(3)
-        utils.run_cmd("sudo nmcli connection up {}".format(conn),
-                      "Set connection {} up".format(conn))
+        retry_count = 0
+        retry_max = 10
+        while retry_count < retry_max:
+            output = utils.run_cmd("sudo nmcli connection up {}".format(conn),
+                                   "Set connection {} up".format(conn))
+            if (output.find("successfully") >= 0):
+                retry_count += retry_max
+            else:
+                retry_count += 1
+                time.sleep(1)
+                logging.debug("Error setting conn up, retry count: %s",
+                              retry_count)
 
 
 def enable_monitor(iface):
