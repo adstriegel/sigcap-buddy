@@ -42,7 +42,7 @@ logging.info("eth0 MAC address: %s", mac)
 def set_interface_down(iface, conn=False):
     logging.info("Setting interface %s down.", iface)
     if (conn):
-        utils.run_cmd("sudo nmcli connection down {}".format(conn),
+        utils.run_cmd("sudo nmcli connection down \"{}\"".format(conn),
                       "Set connection {} down".format(conn))
     utils.run_cmd("sudo ip link set {} down".format(iface),
                   "Set interface {} link down".format(iface))
@@ -56,7 +56,7 @@ def set_interface_up(iface, conn=False):
         retry_count = 0
         retry_max = 10
         while retry_count < retry_max:
-            output = utils.run_cmd("sudo nmcli connection up {}".format(conn),
+            output = utils.run_cmd("sudo nmcli connection up \"{}\"".format(conn),
                                    "Set connection {} up".format(conn))
             if (output.find("successfully") >= 0):
                 retry_count += retry_max
@@ -115,14 +115,14 @@ def setup_network(wifi_conn, wireless_iface, monitor_iface):
             if (wifi_conn["ssid"] != split[0]):
                 # Delete the possibly unused connection
                 utils.run_cmd(("sudo nmcli connection "
-                               "delete {}").format(split[0]),
+                               "delete \"{}\"").format(split[0]),
                               "Deleting wlan connection {}".format(split[0]))
             else:
                 # Otherwise the connection is found
                 conn_found = True
         elif (split[2] == "802-3-ethernet"):
             # If the connection is ethernet, try to connect
-            utils.run_cmd("sudo nmcli connection up {}".format(split[0]),
+            utils.run_cmd("sudo nmcli connection up \"{}\"".format(split[0]),
                           "Connecting to ethernet {}".format(split[0]))
 
     # Try connect Wi-Fi using info from Firebase
@@ -137,7 +137,7 @@ def setup_network(wifi_conn, wireless_iface, monitor_iface):
         # Check if connection need editing.
         conn_iface = utils.run_cmd(
             ("sudo nmcli --fields connection.interface-name connection "
-             "show {}").format(wifi_conn["ssid"]),
+             "show \"{}\"").format(wifi_conn["ssid"]),
             "Check connection {} interface".format(wifi_conn["ssid"]))
         edit_iface = wireless_iface not in conn_iface
         logging.debug("Edit connection %s interface? %s",
@@ -146,7 +146,7 @@ def setup_network(wifi_conn, wireless_iface, monitor_iface):
         if ("bssid" in wifi_conn and wifi_conn["bssid"]):
             conn_iface = utils.run_cmd(
                 ("sudo nmcli --fields 802-11-wireless.bssid connection "
-                 "show {}").format(wifi_conn["ssid"]),
+                 "show \"{}\"").format(wifi_conn["ssid"]),
                 "Check connection {} interface".format(wifi_conn["ssid"]))
             edit_bssid = wifi_conn["bssid"] not in conn_iface
             logging.debug("Edit connection %s BSSID? %s",
@@ -155,13 +155,13 @@ def setup_network(wifi_conn, wireless_iface, monitor_iface):
         if (edit_bssid or edit_iface):
             # Put new connection down temporarily for editing
             utils.run_cmd(("sudo nmcli connection "
-                           "down {}").format(wifi_conn["ssid"]),
+                           "down \"{}\"").format(wifi_conn["ssid"]),
                           ("Setting connection {} "
                            "down temporarily").format(wifi_conn["ssid"]))
             # Ensure that the connection is active on selected iface
             if (edit_iface):
                 utils.run_cmd(
-                    ("sudo nmcli connection modify {} "
+                    ("sudo nmcli connection modify \"{}\" "
                      "connection.interface-name {}").format(
                         wifi_conn["ssid"], wireless_iface),
                     "Setting connection {} to {}".format(
@@ -169,7 +169,7 @@ def setup_network(wifi_conn, wireless_iface, monitor_iface):
             # If BSSID is in connection info, add it
             if (edit_bssid):
                 utils.run_cmd(
-                    ("sudo nmcli connection modify {} "
+                    ("sudo nmcli connection modify \"{}\" "
                      "802-11-wireless.bssid {}").format(
                         wifi_conn["ssid"], wifi_conn["bssid"]),
                     "Setting connection {} BSSID to {}".format(
@@ -177,7 +177,7 @@ def setup_network(wifi_conn, wireless_iface, monitor_iface):
 
         # Activate connection, should run whether the connection is up or down
         utils.run_cmd(("sudo nmcli connection "
-                       "up {}").format(wifi_conn["ssid"]),
+                       "up \"{}\"").format(wifi_conn["ssid"]),
                       ("Setting connection {} "
                        "up").format(wifi_conn["ssid"]))
 
