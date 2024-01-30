@@ -1,5 +1,5 @@
 {
-    "monitor_interface": "wlan1",
+    "monitor_interface": "",
     "wireless_interface": "wlan0",
     "speedtest_interval": 60,
     "upload_interval": 0,
