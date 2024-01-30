@@ -24,6 +24,7 @@ def run_cmd(cmd, logging_prefix="Running command", log_result=True,
 
 def run_cmd_async(cmd, logging_prefix="Running async command"):
     # Sanitize command, only allow certain symbols if it's in "sleep 1;"
+    # TODO: also replace "sleep n;"
     sanitized = cmd.replace("sleep 1;", "")
     if (";" in sanitized
             or "|" in sanitized

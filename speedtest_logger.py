@@ -100,7 +100,8 @@ def setup_network(wifi_conn, wireless_iface, monitor_iface):
     set_interface_up("eth0")
     set_interface_up(wireless_iface)
     disable_monitor(wireless_iface)
-    enable_monitor(monitor_iface)
+    if (monitor_iface and wireless_iface != monitor_iface):
+        enable_monitor(monitor_iface)
 
     # Check available eth and wlan connection in nmcli
     conn_found = False
