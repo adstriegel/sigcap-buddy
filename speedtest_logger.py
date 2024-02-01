@@ -262,6 +262,7 @@ def scan_wifi_async(iface, link_wait=1):
     logging.info("Starting Wi-Fi scan.")
     return {
         "proc_obj": wifi_scan.scan_async(iface, link_wait),
+        "proc_link": wifi_scan.link_async(iface),
         "timestamp": datetime.now(timezone.utc).astimezone().isoformat(),
         "iface": iface
     }
@@ -270,6 +271,7 @@ def scan_wifi_async(iface, link_wait=1):
 def resolve_scan_wifi_async(resolve_obj, extra):
     logging.info("Resolving Wi-Fi scan.")
     results = wifi_scan.resolve_scan_async(resolve_obj["proc_obj"])
+    results_link = wifi_scan.resolve_link_async(resolve_obj["proc_link"])
 
     # Log this data
     with open("logs/wifi-scan/{}.json".format(
@@ -279,7 +281,8 @@ def resolve_scan_wifi_async(resolve_obj, extra):
                 "timestamp": resolve_obj["timestamp"],
                 "interface": resolve_obj["iface"],
                 "extra": extra,
-                "beacons": results}))
+                "beacons": results,
+                "links": results_link}))
 
 
 def main():

@@ -15,6 +15,9 @@ re_patterns = {
 
 re_tx_bitrate = re.compile(r"tx bitrate: *(.+)")
 re_rx_bitrate = re.compile(r"rx bitrate: *(.+)")
+re_timestamp = re.compile(
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2},\d+[+-]\d{2}:\d{2}")
+re_link_rssi = re.compile(r"signal: *([-\d\.]+ ?dBm)")
 
 
 def byte_uint_to_int(byte_uint):
@@ -190,6 +193,25 @@ def process_link(result):
     }
 
 
+def process_link_results(results):
+    # Get timestamps and bitrates
+    timestamps = re_timestamp.findall(results)
+    rssis = re_link_rssi.findall(results)
+    tx_bitrates = re_tx_bitrate.findall(results)
+    rx_bitrates = re_rx_bitrate.findall(results)
+
+    out_arr = []
+    for i in range(0, len(rx_bitrates)):
+        out_arr.append({
+            "timestamp": timestamps[i].replace(",", "."),
+            "rssi": rssis[i],
+            "tx_bitrate": tx_bitrates[i],
+            "rx_bitrate": rx_bitrates[i]
+        })
+
+    return out_arr
+
+
 def process_scan_results(results, wifi_link):
     # Process Wi-Fi scan results
     results = re_sub.sub(" ", results).split("Cell")
@@ -270,6 +292,23 @@ def resolve_scan_async(proc_obj):
         log_result=False)
 
     return process_scan_results(results, process_link(result_conn))
+
+
+def link_async(iface):
+    # Continuouly run "iw dev link" to capture Wi-Fi link's bitrates
+    return utils.run_cmd_async(
+        "while true; do date -Ins; sudo iw dev {} link; done".format(iface),
+        "Continuouly get Wi-Fi link")
+
+
+def resolve_link_async(proc):
+    results = utils.resolve_cmd_async(
+        proc,
+        "Resolving repeated Wi-Fi link call",
+        log_result=False,
+        kill=True)
+
+    return process_link_results(results)
 
 
 if __name__ == '__main__':

@@ -26,6 +26,9 @@ def run_cmd_async(cmd, logging_prefix="Running async command"):
     # Sanitize command, only allow certain symbols if it's in "sleep 1;"
     # TODO: also replace "sleep n;"
     sanitized = cmd.replace("sleep 1;", "")
+    sanitized = sanitized.replace("while true; do", "")
+    sanitized = sanitized.replace("date -Ins;", "")
+    sanitized = sanitized.replace("; done", "")
     if (";" in sanitized
             or "|" in sanitized
             or ">" in sanitized
@@ -41,10 +44,12 @@ def run_cmd_async(cmd, logging_prefix="Running async command"):
 
 
 def resolve_cmd_async(proc, logging_prefix="Resolving async command",
-                      log_result=True, timeout_s=None):
+                      log_result=True, timeout_s=None, kill=False):
     try:
+        if kill:
+            proc.kill()
         out, err = proc.communicate(timeout=timeout_s)
-        if (proc.returncode == 0):
+        if (proc.returncode == 0 or (kill and not err)):
             result = out.decode("utf-8")
             if (log_result):
                 logging.debug(result)
