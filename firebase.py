@@ -27,14 +27,34 @@ def read_config():
         return json.load(config_file)
 
 
-def push_heartbeat(mac, test_uuid):
-    logging.info("Pushing heartbeat with test_uuid=%s.", test_uuid)
-    heartbeat_ref = db.reference("heartbeat")
-    heartbeat_ref.push().set({
-        "mac": mac,
-        "test_uuid": test_uuid,
-        "last_timestamp": datetime.timestamp(datetime.now()) * 1000
-    })
+def push_heartbeat(mac):
+    hb_append_ref = db.reference("hb_append").child(mac)
+    timestamp = datetime.timestamp(datetime.now()) * 1000
+    logging.info("Pushing heartbeat with timestamp %f", timestamp)
+
+    found = hb_append_ref.order_by_child(
+        "last_timestamp").limit_to_last(1).get()
+
+    if (len(found) > 0):
+        key = list(found.keys())[0]
+        last_timestamp = found[key]["last_timestamp"]
+        span = (timestamp - last_timestamp)
+        if (span < 5400000):  # 90 minutes
+            logging.debug(("Updating key %s mac %s last_timestamp from "
+                           "%f to %f (span %.3f hour)"),
+                          key, mac, found[key]['last_timestamp'],
+                          timestamp, span / 3600000)
+            ref = hb_append_ref.child(key)
+            ref.update({
+                "last_timestamp": timestamp
+            })
+        else:
+            entry = {
+                "start_timestamp": timestamp,
+                "last_timestamp": timestamp
+            }
+            print("new entry:", entry)
+            hb_append_ref.push().set(entry)
 
 
 def get_wifi_conn(mac):

@@ -310,7 +310,7 @@ def main():
         logging.info("Connection status: %s", conn_status)
 
         # Send heartbeat to indicate up status
-        firebase.push_heartbeat(mac, config["test_uuid"])
+        firebase.push_heartbeat(mac)
 
         # Start tests over ethernet
         if (conn_status["eth"]):
@@ -417,7 +417,7 @@ def main():
             logging.info("Sleeping for 60s")
             interval -= 60
             time.sleep(60)
-            firebase.push_heartbeat(mac, test_uuid="startup")
+            firebase.push_heartbeat(mac)
 
         # Avoid ValueError
         if (interval > 0):
