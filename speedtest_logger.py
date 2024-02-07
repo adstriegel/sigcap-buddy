@@ -295,7 +295,7 @@ def main():
         logging.info("Starting tests.")
 
         # Update config
-        config = firebase.read_config()
+        config = firebase.read_config(mac)
         # Random UUID to correlate WiFi scans and tests
         config["test_uuid"] = str(uuid4())
         logging.info("Config: %s", config)

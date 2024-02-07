@@ -20,11 +20,22 @@ firebase_admin.initialize_app(cred, {
 })
 
 
-def read_config():
+def read_config(mac):
     logging.info("Reading config.json.")
-    # TODO: implement querying config from Firebase
+    config = dict()
     with open("config.json", "r") as config_file:
-        return json.load(config_file)
+        config = json.load(config_file)
+
+    query = db.reference("config").order_by_child(
+        "mac").equal_to(mac.replace("-", ":")).get()
+    values = list(query.values())
+    if (len(values) > 0):
+        val = values[0]
+        for key in val:
+            if (key != "mac" and val[key]):
+                config[key] = val[key]
+
+    return config
 
 
 def push_heartbeat(mac):
