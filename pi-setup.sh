@@ -20,6 +20,14 @@ else
 	cd ~
 fi
 
+# 2.1. checkout to testing branch if a .testing file is detected
+if [ -f /home/$USER/sigcap-buddy/.testing ]; then
+	cd /home/$USER/sigcap-buddy
+	git checkout testing
+	git pull
+	cd ~
+fi
+
 # 3. Setup dir
 mkdir -p /home/$USER/sigcap-buddy/logs/fmnc-log
 mkdir -p /home/$USER/sigcap-buddy/logs/iperf-log
