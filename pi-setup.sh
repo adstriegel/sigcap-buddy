@@ -21,7 +21,7 @@ else
 fi
 
 # 2.1. checkout to testing branch if a .testing file is detected
-if [ -f /home/$USER/sigcap-buddy/.testing ]; then
+if [ -f /home/$USER/.testing ]; then
 	cd /home/$USER/sigcap-buddy
 	git checkout testing
 	git pull
