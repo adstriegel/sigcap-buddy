@@ -143,12 +143,15 @@ def setup_network(wifi_conn, wireless_iface, monitor_iface):
         logging.debug("Edit connection %s interface? %s",
                       wifi_conn["ssid"], edit_iface)
         edit_bssid = False
-        if ("bssid" in wifi_conn and wifi_conn["bssid"]):
+        if ("bssid" in wifi_conn):
             conn_iface = utils.run_cmd(
                 ("sudo nmcli --fields 802-11-wireless.bssid connection "
                  "show \"{}\"").format(wifi_conn["ssid"]),
                 "Check connection {} interface".format(wifi_conn["ssid"]))
-            edit_bssid = wifi_conn["bssid"] not in conn_iface
+            if (wifi_conn["bssid"] == ""):
+                edit_bssid = "--" not in conn_iface
+            else:
+                edit_bssid = wifi_conn["bssid"] not in conn_iface
             logging.debug("Edit connection %s BSSID? %s",
                           wifi_conn["ssid"], edit_bssid)
 
@@ -162,17 +165,17 @@ def setup_network(wifi_conn, wireless_iface, monitor_iface):
             if (edit_iface):
                 utils.run_cmd(
                     ("sudo nmcli connection modify \"{}\" "
-                     "connection.interface-name {}").format(
+                     "connection.interface-name \"{}\"").format(
                         wifi_conn["ssid"], wireless_iface),
-                    "Setting connection {} to {}".format(
+                    "Setting connection \"{}\" to \"{}\"".format(
                         wifi_conn["ssid"], wireless_iface))
             # If BSSID is in connection info, add it
             if (edit_bssid):
                 utils.run_cmd(
                     ("sudo nmcli connection modify \"{}\" "
-                     "802-11-wireless.bssid {}").format(
+                     "802-11-wireless.bssid \"{}\"").format(
                         wifi_conn["ssid"], wifi_conn["bssid"]),
-                    "Setting connection {} BSSID to {}".format(
+                    "Setting connection \"{}\" BSSID to \"{}\"".format(
                         wifi_conn["ssid"], wifi_conn["bssid"]))
 
         # Activate connection, should run whether the connection is up or down
