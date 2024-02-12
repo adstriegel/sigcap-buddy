@@ -1,28 +1,8 @@
 import logging
-import shlex
 import subprocess
 
 
-def run_cmd(cmd, logging_prefix="Running command", log_result=True,
-            timeout_s=None):
-    logging.info("%s: %s.", logging_prefix, cmd)
-    args = shlex.split(cmd)
-    try:
-        result = subprocess.check_output(
-            args, timeout=timeout_s, stderr=subprocess.PIPE).decode("utf-8")
-        if (log_result):
-            logging.debug(result)
-        return result
-    except subprocess.CalledProcessError as e:
-        logging.warning("%s error: %s\nOutput: %s", logging_prefix, e,
-                        e.stderr.decode("utf-8"), exc_info=1)
-        return ""
-    except Exception as e:
-        logging.warning("%s error: %s", logging_prefix, e, exc_info=1)
-        return ""
-
-
-def run_cmd_async(cmd, logging_prefix="Running async command"):
+def sanitize(cmd):
     # Sanitize command, only allow certain symbols if it's in "sleep 1;"
     # TODO: also replace "sleep n;"
     sanitized = cmd.replace("sleep 1;", "")
@@ -34,6 +14,31 @@ def run_cmd_async(cmd, logging_prefix="Running async command"):
             or ">" in sanitized
             or "&" in sanitized):
         raise Exception("Symbols not allowed in cmd!")
+
+
+def run_cmd(cmd, logging_prefix="Running command", log_result=True,
+            timeout_s=None):
+    sanitize(cmd)
+    logging.info("%s: %s.", logging_prefix, cmd)
+    result = subprocess.run(
+        cmd,
+        timeout=timeout_s,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        shell=True)
+    if (result.returncode == 0 or not result.stderr):
+        output = result.stdout.decode("utf-8")
+        if (log_result):
+            logging.debug(output)
+        return output
+    else:
+        logging.warning("%s error:\n%s", logging_prefix,
+                        result.stderr.decode("utf-8"))
+        return ""
+
+
+def run_cmd_async(cmd, logging_prefix="Running async command"):
+    sanitize(cmd)
 
     logging.info("%s: %s.", logging_prefix, cmd)
     return subprocess.Popen(
