@@ -5,6 +5,7 @@ import json
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from logging import Formatter
+import ping
 from random import randint
 import time
 import utils
@@ -288,6 +289,22 @@ def resolve_scan_wifi_async(resolve_obj, extra):
                 "links": results_link}))
 
 
+def run_ping(iface, extra, ping_target, ping_count):
+    # Run Wi-Fi scan
+    logging.info("Starting ping.")
+    results = ping.ping(iface, ping_target, ping_count)
+    timestamp = datetime.now(timezone.utc).astimezone().isoformat()
+
+    # Log this data
+    with open("logs/ping-log/{}.json".format(timestamp), "w") as log_file:
+        log_file.write(
+            json.dumps({
+                "timestamp": timestamp,
+                "interface": iface,
+                "extra": extra,
+                "results": results}))
+
+
 def main():
     logging.info("Upload previously recorded logs on startup.")
     firebase.upload_directory_with_transfer_manager(
@@ -322,6 +339,15 @@ def main():
                 set_interface_down(config["wireless_interface"],
                                    conn_status["wifi"])
 
+            # Run idle ping
+            run_ping(
+                "eth0",
+                extra={
+                    "test_uuid": config["test_uuid"],
+                    "corr_test": "idle"},
+                ping_target=config["ping_target"],
+                ping_count=config["ping_count"])
+
             # Disabled while FMNC is down
             # run_fmnc()
 
@@ -354,6 +380,15 @@ def main():
             logging.info("Starting tests over Wi-Fi.")
             if (conn_status["eth"]):
                 set_interface_down("eth0", conn_status["eth"])
+
+            # Run idle ping
+            run_ping(
+                config["wireless_interface"],
+                extra={
+                    "test_uuid": config["test_uuid"],
+                    "corr_test": "idle"},
+                ping_target=config["ping_target"],
+                ping_count=config["ping_count"])
 
             # Disabled while FMNC is down
             # run_fmnc()

@@ -7,5 +7,7 @@
     "iperf_minport": 5201,
     "iperf_maxport": 5220,
     "iperf_duration": 5,
+    "ping_target": "ns-mn1.cse.nd.edu",
+    "ping_count": 5,
     "timeout_s": 120
 }

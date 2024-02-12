@@ -44,6 +44,7 @@ fi
 mkdir -p /home/$USER/sigcap-buddy/logs/fmnc-log
 mkdir -p /home/$USER/sigcap-buddy/logs/iperf-log
 mkdir -p /home/$USER/sigcap-buddy/logs/pcap-log
+mkdir -p /home/$USER/sigcap-buddy/logs/ping-log
 mkdir -p /home/$USER/sigcap-buddy/logs/speedtest-log
 mkdir -p /home/$USER/sigcap-buddy/logs/wifi-scan
 

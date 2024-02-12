@@ -29,7 +29,7 @@ def process_ping_results(results):
     return parsed
 
 
-def ping(iface, extra, ping_target, ping_count):
+def ping(iface, ping_target, ping_count):
     gateway = get_gateway_ip(iface)
     if (not gateway):
         logging.warning("Cannot find gateway!")
@@ -38,19 +38,15 @@ def ping(iface, extra, ping_target, ping_count):
     logging.info("Running ping to target %s and gateway %s.",
                  ping_target, gateway)
 
-    output = {
-        "interface": iface,
-        "extra": extra,
-        "results": list()
-    }
+    output = list()
     results = utils.run_cmd(
         f"ping {ping_target} -Dc {ping_count}",
         f"Running ping to {ping_target}")
-    output["results"].append(process_ping_results(results))
+    output.append(process_ping_results(results))
     results = utils.run_cmd(
         f"ping {gateway} -Dc {ping_count}",
         f"Running ping to {gateway}")
-    output["results"].append(process_ping_results(results))
+    output.append(process_ping_results(results))
 
     return output
 
