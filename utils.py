@@ -1,5 +1,7 @@
 import logging
+import os
 import subprocess
+import signal
 
 
 def sanitize(cmd):
@@ -45,14 +47,18 @@ def run_cmd_async(cmd, logging_prefix="Running async command"):
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        preexec_fn=os.setsid,
         shell=True)
 
 
 def resolve_cmd_async(proc, logging_prefix="Resolving async command",
                       log_result=True, timeout_s=None, kill=False):
+    logging.info("%s.", logging_prefix)
     try:
         if kill:
-            proc.kill()
+            os.killpg(os.getpgid(proc.pid), signal.SIGINT)
+            logging.debug("Process terminated.")
+
         out, err = proc.communicate(timeout=timeout_s)
         if (proc.returncode == 0 or (kill and not err)):
             result = out.decode("utf-8")

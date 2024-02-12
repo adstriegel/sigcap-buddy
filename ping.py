@@ -41,11 +41,13 @@ def ping(iface, ping_target, ping_count):
     output = list()
     results = utils.run_cmd(
         f"ping {ping_target} -Dc {ping_count}",
-        f"Running ping to {ping_target}")
+        f"Running ping to {ping_target}",
+        log_result=False)
     output.append(process_ping_results(results))
     results = utils.run_cmd(
         f"ping {gateway} -Dc {ping_count}",
-        f"Running ping to {gateway}")
+        f"Running ping to {gateway}",
+        log_result=False)
     output.append(process_ping_results(results))
 
     return output
@@ -59,10 +61,31 @@ def ping_async(iface, ping_target):
 
     logging.info("Running asynchronous ping to target %s and gateway %s.",
                  ping_target, gateway)
-    # return utils.run_cmd_async(
-    #     "date -Ins; sudo iw dev {} link; done".format(iface),
-    #     "Continuouly get Wi-Fi link")
+    return {
+        "target": utils.run_cmd_async(
+            f"ping {ping_target} -D",
+            f"Running ping to {ping_target}"),
+        "gateway": utils.run_cmd_async(
+            f"ping {gateway} -D",
+            f"Running ping to {gateway}")}
 
 
-def resolve_ping_async(iface, extra):
+def resolve_ping_async(proc_obj):
     logging.info("Resolving ping.")
+    output = list()
+
+    results = utils.resolve_cmd_async(
+        proc_obj["target"],
+        "Resolving ping to target",
+        log_result=False,
+        kill=True)
+    output.append(process_ping_results(results))
+
+    results = utils.resolve_cmd_async(
+        proc_obj["gateway"],
+        "Resolving ping to gateway",
+        log_result=False,
+        kill=True)
+    output.append(process_ping_results(results))
+
+    return output

@@ -274,8 +274,8 @@ def scan_wifi_async(iface, link_wait=1):
 
 def resolve_scan_wifi_async(resolve_obj, extra):
     logging.info("Resolving Wi-Fi scan.")
-    results = wifi_scan.resolve_scan_async(resolve_obj["proc_obj"])
     results_link = wifi_scan.resolve_link_async(resolve_obj["proc_link"])
+    results = wifi_scan.resolve_scan_async(resolve_obj["proc_obj"])
 
     # Log this data
     with open("logs/wifi-scan/{}.json".format(
@@ -302,7 +302,33 @@ def run_ping(iface, extra, ping_target, ping_count):
                 "timestamp": timestamp,
                 "interface": iface,
                 "extra": extra,
-                "results": results}))
+                "pings": results}))
+
+
+def run_ping_async(iface, ping_target):
+    # Run Wi-Fi scan
+    logging.info("Starting async ping.")
+    proc_obj = ping.ping_async(iface, ping_target)
+    return {
+        "proc_obj": proc_obj,
+        "timestamp": datetime.now(timezone.utc).astimezone().isoformat(),
+        "iface": iface
+    }
+
+
+def resolve_run_ping_async(resolve_obj, extra):
+    logging.info("Resolving async ping.")
+    results = ping.resolve_ping_async(resolve_obj["proc_obj"])
+
+    # Log this data
+    with open("logs/ping-log/{}.json".format(
+              resolve_obj["timestamp"]), "w") as log_file:
+        log_file.write(
+            json.dumps({
+                "timestamp": resolve_obj["timestamp"],
+                "interface": resolve_obj["iface"],
+                "extra": extra,
+                "pings": results}))
 
 
 def main():
@@ -352,20 +378,36 @@ def main():
             # run_fmnc()
 
             # iperf downlink
+            resolve_ping_obj = run_ping_async(
+                "eth0",
+                ping_target=config["ping_target"])
             run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
                                    config["iperf_maxport"]),
                       direction="dl", duration=config["iperf_duration"],
                       dev="eth0", timeout_s=config["timeout_s"])
+            resolve_run_ping_async(
+                resolve_ping_obj,
+                extra={
+                    "test_uuid": config["test_uuid"],
+                    "corr_test": "iperf-dl"})
 
             # iperf uplink
+            resolve_ping_obj = run_ping_async(
+                "eth0",
+                ping_target=config["ping_target"])
             run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
                                    config["iperf_maxport"]),
                       direction="ul", duration=config["iperf_duration"],
                       dev="eth0", timeout_s=config["timeout_s"])
+            resolve_run_ping_async(
+                resolve_ping_obj,
+                extra={
+                    "test_uuid": config["test_uuid"],
+                    "corr_test": "iperf-ul"})
 
             # Ookla Speedtest
             run_speedtest(test_uuid=config["test_uuid"],
@@ -394,7 +436,10 @@ def main():
             # run_fmnc()
 
             # iperf downlink
-            resolve_obj = scan_wifi_async(config["wireless_interface"])
+            resolve_ping_obj = run_ping_async(
+                config["wireless_interface"],
+                ping_target=config["ping_target"])
+            resolve_scan_obj = scan_wifi_async(config["wireless_interface"])
             run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
@@ -402,14 +447,22 @@ def main():
                       direction="dl", duration=config["iperf_duration"],
                       dev=config["wireless_interface"],
                       timeout_s=config["timeout_s"])
+            resolve_run_ping_async(
+                resolve_ping_obj,
+                extra={
+                    "test_uuid": config["test_uuid"],
+                    "corr_test": "iperf-dl"})
             resolve_scan_wifi_async(
-                resolve_obj,
+                resolve_scan_obj,
                 extra={
                     "test_uuid": config["test_uuid"],
                     "corr_test": "iperf-dl"})
 
             # iperf uplink
-            resolve_obj = scan_wifi_async(config["wireless_interface"])
+            resolve_ping_obj = run_ping_async(
+                config["wireless_interface"],
+                ping_target=config["ping_target"])
+            resolve_scan_obj = scan_wifi_async(config["wireless_interface"])
             run_iperf(test_uuid=config["test_uuid"],
                       server=config["iperf_server"],
                       port=randint(config["iperf_minport"],
@@ -417,18 +470,23 @@ def main():
                       direction="ul", duration=config["iperf_duration"],
                       dev=config["wireless_interface"],
                       timeout_s=config["timeout_s"])
+            resolve_run_ping_async(
+                resolve_ping_obj,
+                extra={
+                    "test_uuid": config["test_uuid"],
+                    "corr_test": "iperf-ul"})
             resolve_scan_wifi_async(
-                resolve_obj,
+                resolve_scan_obj,
                 extra={
                     "test_uuid": config["test_uuid"],
                     "corr_test": "iperf-ul"})
 
             # Ookla Speedtest
-            resolve_obj = scan_wifi_async(config["wireless_interface"])
+            resolve_scan_obj = scan_wifi_async(config["wireless_interface"])
             run_speedtest(test_uuid=config["test_uuid"],
                           timeout_s=config["timeout_s"])
             resolve_scan_wifi_async(
-                resolve_obj,
+                resolve_scan_obj,
                 extra={
                     "test_uuid": config["test_uuid"],
                     "corr_test": "speedtest"})
