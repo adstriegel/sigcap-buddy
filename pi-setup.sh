@@ -9,7 +9,7 @@ sudo apt update && DEBIAN_FRONTEND=noninteractive sudo apt install git iperf3 py
 if [ ! -d /home/$USER/venv_firebase ]; then
 	python -m venv /home/$USER/venv_firebase
 fi
-/home/$USER/venv_firebase/bin/python -m pip install firebase-admin
+/home/$USER/venv_firebase/bin/python -m pip install firebase-admin jc
 
 # 2. git clone/pull sigcap-buddy
 if [ ! -d /home/$USER/sigcap-buddy ]; then
