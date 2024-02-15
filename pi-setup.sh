@@ -60,7 +60,7 @@ if [ ! -f /home/$USER/sigcap-buddy/nd-schmidt-firebase-*.json ]; then
 	wget --user nsadmin --ask-password -P /home/$USER/sigcap-buddy http://ns-mn1.cse.nd.edu/firebase/nd-schmidt-firebase-adminsdk-d1gei-43db929d8a.json
 fi
 
-# 6. Enable/restart service
+# 6. Enable/restart speedtest_logger service
 if [ -f /etc/systemd/system/speedtest_logger.service ]; then
 	sed -e "s/\$USER/$USER/g" /home/$USER/sigcap-buddy/speedtest_logger.service.template > speedtest_logger.service
 	sudo mv speedtest_logger.service /etc/systemd/system/
@@ -71,6 +71,17 @@ else
 	sudo mv speedtest_logger.service /etc/systemd/system/
 	sudo systemctl enable speedtest_logger.service
 	sudo systemctl start speedtest_logger.service
+fi
+
+# 6.1 Enable/restart iperf service
+if [ -f /etc/systemd/system/iperf3_@.service ]; then
+	sudo cp iperf3_@.service /etc/systemd/system/
+	sudo systemctl reenable iperf3_@5201.service
+	sudo systemctl restart iperf3_@5201.service
+else
+	sudo cp iperf3_@.service /etc/systemd/system/
+	sudo systemctl enable iperf3_@5201.service
+	sudo systemctl start iperf3_@5201.service
 fi
 
 # 7. Set update cron

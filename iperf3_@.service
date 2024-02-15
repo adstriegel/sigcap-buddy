@@ -1,0 +1,14 @@
+# /etc/systemd/system/iperf3_@.service
+# User service: $HOME/.config/systemd/user/iperf3.service
+
+[Unit]
+Description=iperf3 server
+After=syslog.target network.target auditd.service
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+ExecStart=/usr/bin/iperf3 -s -p %i -4 --bind-dev eth0
+
+[Install]
+WantedBy=multi-user.target
