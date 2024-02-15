@@ -23,7 +23,19 @@ fi
 # 2.1. checkout to testing branch if a .testing file is detected
 if [ -f /home/$USER/.testing ]; then
 	cd /home/$USER/sigcap-buddy
-	git checkout testing
+	BRANCH_NAME="testing"
+
+	# Check if branch exists
+	if [ ! `git rev-parse --verify $BRANCH_NAME 2> /dev/null` ] ; then
+		# Create new branch and set upstream tracking
+		git branch $BRANCH_NAME origin/$BRANCH_NAME
+	fi
+
+	# Check if currently on the branch
+	if [ `git branch --show-current` != $BRANCH_NAME ]; then
+		# Checkout to the branch
+		git checkout $BRANCH_NAME
+	fi
 	git pull
 	cd ~
 fi
