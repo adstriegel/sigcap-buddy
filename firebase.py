@@ -26,14 +26,17 @@ def read_config(mac):
     with open("config.json", "r") as config_file:
         config = json.load(config_file)
 
-    query = db.reference("config").order_by_child(
-        "mac").equal_to(mac.replace("-", ":")).get()
-    values = list(query.values())
-    if (len(values) > 0):
-        val = values[0]
-        for key in val:
-            if (key != "mac" and val[key]):
-                config[key] = val[key]
+    try:
+        query = db.reference("config").order_by_child(
+            "mac").equal_to(mac.replace("-", ":")).get()
+        values = list(query.values())
+        if (len(values) > 0):
+            val = values[0]
+            for key in val:
+                if (key != "mac" and val[key]):
+                    config[key] = val[key]
+    except Exception as e:
+        logging.error("Cannot connect db config: %s", e, exc_info=1)
 
     return config
 
@@ -43,35 +46,43 @@ def push_heartbeat(mac):
     timestamp = datetime.timestamp(datetime.now()) * 1000
     logging.info("Pushing heartbeat with timestamp %f", timestamp)
 
-    found = hb_append_ref.order_by_child(
-        "last_timestamp").limit_to_last(1).get()
+    try:
+        found = hb_append_ref.order_by_child(
+            "last_timestamp").limit_to_last(1).get()
 
-    if (len(found) > 0):
-        key = list(found.keys())[0]
-        last_timestamp = found[key]["last_timestamp"]
-        span = (timestamp - last_timestamp)
-        if (span < 5400000):  # 90 minutes
-            logging.debug(("Updating key %s mac %s last_timestamp from "
-                           "%f to %f (span %.3f hour)"),
-                          key, mac, found[key]['last_timestamp'],
-                          timestamp, span / 3600000)
-            ref = hb_append_ref.child(key)
-            ref.update({
-                "last_timestamp": timestamp
-            })
-        else:
-            entry = {
-                "start_timestamp": timestamp,
-                "last_timestamp": timestamp
-            }
-            print("new entry:", entry)
-            hb_append_ref.push().set(entry)
+        if (len(found) > 0):
+            key = list(found.keys())[0]
+            last_timestamp = found[key]["last_timestamp"]
+            span = (timestamp - last_timestamp)
+            if (span < 5400000):  # 90 minutes
+                logging.debug(("Updating key %s mac %s last_timestamp from "
+                               "%f to %f (span %.3f hour)"),
+                              key, mac, found[key]['last_timestamp'],
+                              timestamp, span / 3600000)
+                ref = hb_append_ref.child(key)
+                ref.update({
+                    "last_timestamp": timestamp
+                })
+            else:
+                entry = {
+                    "start_timestamp": timestamp,
+                    "last_timestamp": timestamp
+                }
+                print("new entry:", entry)
+                hb_append_ref.push().set(entry)
+    except Exception as e:
+        logging.error("Cannot connect db hb_append: %s", e, exc_info=1)
 
 
 def get_wifi_conn(mac):
     logging.info("Getting Wi-Fi connection from Firebase.")
-    wifi_ref = db.reference("wifi").order_by_child("mac").equal_to(
-        mac.replace("-", ":")).get()
+    wifi_ref = None
+    try:
+        wifi_ref = db.reference("wifi").order_by_child("mac").equal_to(
+            mac.replace("-", ":")).get()
+    except Exception as e:
+        logging.error("Cannot connect db wifi: %s", e, exc_info=1)
+
     if not wifi_ref:
         logging.warning("Cannot find Wi-Fi info for %s", mac)
         return False
