@@ -123,8 +123,7 @@ def setup_network(wifi_conn, wireless_iface, monitor_iface):
                 conn_found = True
         elif (split[2] == "802-3-ethernet"):
             # If the connection is ethernet, try to connect
-            utils.run_cmd("sudo nmcli connection up \"{}\"".format(split[0]),
-                          "Connecting to ethernet {}".format(split[0]))
+            set_interface_up("eth0", split[0])
 
     # Try connect Wi-Fi using info from Firebase
     if (not conn_found and wifi_conn):
