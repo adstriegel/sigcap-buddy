@@ -61,22 +61,25 @@ if [ ! -f /home/$USER/sigcap-buddy/nd-schmidt-firebase-*.json ]; then
 fi
 
 # 6. Enable/restart speedtest_logger service
-sed -e "s/\$USER/$USER/g" /home/$USER/sigcap-buddy/speedtest_logger.service.template > speedtest_logger.service
-sudo mv speedtest_logger.service /etc/systemd/system/
 if [ -f /etc/systemd/system/speedtest_logger.service ]; then
+	sed -e "s/\$USER/$USER/g" /home/$USER/sigcap-buddy/speedtest_logger.service.template > speedtest_logger.service
+	sudo mv speedtest_logger.service /etc/systemd/system/
 	sudo systemctl reenable speedtest_logger.service
 	sudo systemctl restart speedtest_logger.service
 else
+	sed -e "s/\$USER/$USER/g" /home/$USER/sigcap-buddy/speedtest_logger.service.template > speedtest_logger.service
+	sudo mv speedtest_logger.service /etc/systemd/system/
 	sudo systemctl enable speedtest_logger.service
 	sudo systemctl start speedtest_logger.service
 fi
 
 # 6.1 Enable/restart iperf service
-sudo cp /home/$USER/sigcap-buddy/iperf3_@.service /etc/systemd/system/
 if [ -f /etc/systemd/system/iperf3_@.service ]; then
+	sudo cp /home/$USER/sigcap-buddy/iperf3_@.service /etc/systemd/system/
 	sudo systemctl reenable iperf3_@5201.service
 	sudo systemctl restart iperf3_@5201.service
 else
+	sudo cp /home/$USER/sigcap-buddy/iperf3_@.service /etc/systemd/system/
 	sudo systemctl enable iperf3_@5201.service
 	sudo systemctl start iperf3_@5201.service
 fi
