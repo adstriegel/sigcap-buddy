@@ -49,8 +49,9 @@ def push_heartbeat(mac):
     try:
         found = hb_append_ref.order_by_child(
             "last_timestamp").limit_to_last(1).get()
+        updated = False
 
-        if (len(found) > 0):
+        if (found and len(found) > 0):
             key = list(found.keys())[0]
             last_timestamp = found[key]["last_timestamp"]
             span = (timestamp - last_timestamp)
@@ -63,13 +64,15 @@ def push_heartbeat(mac):
                 ref.update({
                     "last_timestamp": timestamp
                 })
-            else:
-                entry = {
-                    "start_timestamp": timestamp,
-                    "last_timestamp": timestamp
-                }
-                print("new entry:", entry)
-                hb_append_ref.push().set(entry)
+                updated = True
+
+        if (not updated):
+            entry = {
+                "start_timestamp": timestamp,
+                "last_timestamp": timestamp
+            }
+            print("new entry:", entry)
+            hb_append_ref.push().set(entry)
     except Exception as e:
         logging.error("Cannot connect db hb_append: %s", e, exc_info=1)
 
