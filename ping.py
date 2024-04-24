@@ -23,8 +23,9 @@ def get_gateway_ip(iface):
 def process_ping_results(results):
     parsed = jc.parse("ping", results)
     for entry in parsed["responses"]:
-        entry["timestamp"] = datetime.fromtimestamp(
-            entry["timestamp"]).astimezone().isoformat()
+        if "timestamp" in entry:
+            entry["timestamp"] = datetime.fromtimestamp(
+                entry["timestamp"]).astimezone().isoformat()
 
     return parsed
 
