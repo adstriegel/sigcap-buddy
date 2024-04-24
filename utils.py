@@ -19,7 +19,7 @@ def sanitize(cmd):
 
 
 def run_cmd(cmd, logging_prefix="Running command", log_result=True,
-            timeout_s=None):
+            timeout_s=None, raw_out=False):
     sanitize(cmd)
     logging.info("%s: %s.", logging_prefix, cmd)
     result = subprocess.run(
@@ -28,7 +28,13 @@ def run_cmd(cmd, logging_prefix="Running command", log_result=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=True)
-    if (result.returncode == 0 or not result.stderr):
+    if (raw_out):
+        return {
+            "result": result.returncode,
+            "stdout": result.stdout.decode("utf-8"),
+            "stderr": result.stderr.decode("utf-8")
+        }
+    elif (result.returncode == 0 or not result.stderr):
         output = result.stdout.decode("utf-8")
         if (log_result):
             logging.debug(output)

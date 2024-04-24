@@ -9,5 +9,8 @@
     "iperf_duration": 5,
     "ping_target": "ns-mn1.cse.nd.edu",
     "ping_count": 5,
-    "timeout_s": 120
+    "timeout_s": 120,
+    "broker_addr": "ns-mn1.cse.nd.edu",
+    "broker_port": 1883,
+    "publish_interval": 600
 }

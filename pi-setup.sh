@@ -9,7 +9,7 @@ sudo apt update && DEBIAN_FRONTEND=noninteractive sudo apt install git iperf3 py
 if [ ! -d /home/$USER/venv_firebase ]; then
 	python -m venv /home/$USER/venv_firebase
 fi
-/home/$USER/venv_firebase/bin/python -m pip install firebase-admin jc
+/home/$USER/venv_firebase/bin/python -m pip install firebase-admin jc paho-mqtt
 
 # 2. git clone/pull sigcap-buddy
 if [ ! -d /home/$USER/sigcap-buddy ]; then
@@ -59,6 +59,9 @@ tar -xf /tmp/ookla-speedtest-1.2.0-linux-$(arch).tgz -C /home/$USER/sigcap-buddy
 if [ ! -f /home/$USER/sigcap-buddy/nd-schmidt-firebase-*.json ]; then
 	wget --user nsadmin --ask-password -P /home/$USER/sigcap-buddy http://ns-mn1.cse.nd.edu/firebase/nd-schmidt-firebase-adminsdk-d1gei-43db929d8a.json
 fi
+if [ ! -f /home/$USER/sigcap-buddy/.mqtt-config.json ]; then
+	wget --user nsadmin --ask-password -P /home/$USER/sigcap-buddy http://ns-mn1.cse.nd.edu/firebase/.mqtt-config.json
+fi
 
 # 6. Enable/restart speedtest_logger service
 if [ -f /etc/systemd/system/speedtest_logger.service ]; then
@@ -82,6 +85,19 @@ else
 	sudo cp /home/$USER/sigcap-buddy/iperf3_@.service /etc/systemd/system/
 	sudo systemctl enable iperf3_@5201.service
 	sudo systemctl start iperf3_@5201.service
+fi
+
+# 6.2. Enable/restart mqtt_logger service
+if [ -f /etc/systemd/system/mqtt.service ]; then
+	sed -e "s/\$USER/$USER/g" /home/$USER/sigcap-buddy/mqtt.service.template > mqtt.service
+	sudo mv mqtt.service /etc/systemd/system/
+	sudo systemctl reenable mqtt.service
+	sudo systemctl restart mqtt.service
+else
+	sed -e "s/\$USER/$USER/g" /home/$USER/sigcap-buddy/mqtt.service.template > mqtt.service
+	sudo mv mqtt.service /etc/systemd/system/
+	sudo systemctl enable mqtt.service
+	sudo systemctl start mqtt.service
 fi
 
 # 7. Set update cron
