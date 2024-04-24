@@ -105,7 +105,7 @@ def on_message(client, userdata, msg):
     if "mac" in commands and commands["mac"] != mac:
         return
 
-    match commands[0]:
+    match commands["cmd"]:
         case "ping":
             # Ping the Pi
             client.publish(
