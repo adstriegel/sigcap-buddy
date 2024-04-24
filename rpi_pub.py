@@ -112,7 +112,8 @@ def on_message(client, userdata, msg):
             logging.info("Got ping command")
             client.publish(
                 topic_config_res,
-                json.dumps({"cmd": commands["cmd"],
+                json.dumps({"mac": mac,
+                            "cmd": commands["cmd"],
                             "res": "success",
                             "err": ""}),
                 qos=1, retain=True)
@@ -128,14 +129,16 @@ def on_message(client, userdata, msg):
             if (output["result"] == 0):
                 client.publish(
                     topic_config_res,
-                    json.dumps({"cmd": commands["cmd"],
+                    json.dumps({"mac": mac,
+                                "cmd": commands["cmd"],
                                 "res": "success",
                                 "err": ""}),
                     qos=1, retain=True)
             else:
                 client.publish(
                     topic_config_res,
-                    json.dumps({"cmd": commands["cmd"],
+                    json.dumps({"mac": mac,
+                                "cmd": commands["cmd"],
                                 "res": "failed",
                                 "err": output["stderr"]}),
                     qos=1, retain=True)
