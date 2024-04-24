@@ -102,18 +102,24 @@ def on_message(client, userdata, msg):
     commands = json.loads(payload)
 
     # Skip if the command is not intended for this mac
-    if "mac" in commands and commands["mac"] != mac:
+    if "mac" in commands and commands["mac"] != "" and commands["mac"] != mac:
+        logging.info("Skipping command intended for %s.", mac)
         return
 
     match commands["cmd"]:
         case "ping":
             # Ping the Pi
+            logging.info("Got ping command")
             client.publish(
                 topic_config_res,
-                json.dumps({"cmd": commands[0], "res": "success", "err": ""}))
+                json.dumps({"cmd": commands["cmd"],
+                            "res": "success",
+                            "err": ""}),
+                qos=1, retain=True)
 
         case "update":
             # Run the update script
+            logging.info("Got update command")
             output = utils.run_cmd(
                 ("wget -q -O - https://raw.githubusercontent.com/adstriegel/"
                  "sigcap-buddy/main/pi-setup.sh | /bin/bash"),
@@ -122,15 +128,17 @@ def on_message(client, userdata, msg):
             if (output["result"] == 0):
                 client.publish(
                     topic_config_res,
-                    json.dumps({"cmd": commands[0],
+                    json.dumps({"cmd": commands["cmd"],
                                 "res": "success",
-                                "err": ""}))
+                                "err": ""}),
+                    qos=1, retain=True)
             else:
                 client.publish(
                     topic_config_res,
-                    json.dumps({"cmd": commands[0],
+                    json.dumps({"cmd": commands["cmd"],
                                 "res": "failed",
-                                "err": output["stderr"]}))
+                                "err": output["stderr"]}),
+                    qos=1, retain=True)
 
         case "publish":
             # TODO immediately publish report
