@@ -3,7 +3,6 @@ Description=MQTT Service
 After=network.target
 
 [Service]
-ExecStartPre=sleep 60
 ExecStart=/home/$USER/venv_firebase/bin/python /home/$USER/sigcap-buddy/rpi_pub.py
 Restart=always
 RestartSec=60
