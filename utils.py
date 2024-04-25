@@ -11,6 +11,10 @@ def sanitize(cmd):
     sanitized = sanitized.replace("while true; do", "")
     sanitized = sanitized.replace("date -Ins;", "")
     sanitized = sanitized.replace("; done", "")
+    sanitized = sanitized.replace(
+        ("wget -q -O - https://raw.githubusercontent.com/adstriegel/"
+         "sigcap-buddy/main/pi-setup.sh | "),
+        "")
     if (";" in sanitized
             or "|" in sanitized
             or ">" in sanitized
