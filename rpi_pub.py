@@ -162,8 +162,9 @@ def on_message(client, userdata, msg):
         case "update":
             # Run the update script
             logging.info("Got update command")
-            msg = create_msg("update", "starting update...")
-            client.publish(topic_report_conf, json.dumps(msg), qos=1)
+            # TODO this message is sent later with the update results
+            # msg = create_msg("update", "starting update...")
+            # client.publish(topic_report_conf, json.dumps(msg), qos=1)
             output = utils.run_cmd(
                 ("wget -q -O - https://raw.githubusercontent.com/adstriegel/"
                  "sigcap-buddy/main/pi-setup.sh | /bin/bash"),
