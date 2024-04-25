@@ -46,10 +46,25 @@ config = firebase.read_config(mac)
 logging.info("Config: %s", config)
 
 
-# Define topics
+# Publish topics
 topic_report = f"Schmidt/{mac}/report/status"
-topic_config = "Schmidt/config"
-topic_config_res = f"Schmidt/{mac}/config/result"
+# topic_report_ip = f"Schmidt/{mac}/report/status/ip"
+# topic_report_mac = f"Schmidt/{mac}/report/status/mac"
+topic_report_conf = f"Schmidt/{mac}/report/config"
+# Subscribed topics
+topic_config_all = f"Schmidt/all/config/#"
+topic_config_specific = f"Schmidt/{mac}/config/#"
+
+
+def create_msg(msg_type, out, err=""):
+    return {
+        "mac": mac,
+        "timestamp": datetime.now(timezone.utc).astimezone().isoformat(),
+        "type": msg_type,
+        "result": "failed" if err else "success",
+        "out": out,
+        "err": err,
+    }
 
 
 def get_ssid():
@@ -66,57 +81,84 @@ def get_ssid():
     return ssid
 
 
-def get_ifaces():
+def get_ifaces(specific=None):
     parsed = jc.parse("ifconfig", utils.run_cmd("ifconfig"))
-    # Remove unneeded parameters
-    parsed = list(map(lambda x: {
-        "name": x["name"],
-        "up": "UP" in x["state"],
-        "ip_address": x["ipv4_addr"],
-        "mac_address": x["mac_addr"]
-    }, parsed))
     # Remove loopback
     parsed = [item for item in parsed if item["name"] != "lo"]
+    # Remove unneeded parameters
+    match specific:
+        case "up":
+            parsed = {item["name"]: "UP" in item["state"] for item in parsed}
+        case "ip":
+            parsed = {item["name"]: item["ipv4_addr"] for item in parsed}
+        case "mac":
+            parsed = {item["name"]: item["mac_addr"] for item in parsed}
+        case _:
+            parsed = list(map(lambda x: {
+                "name": x["name"],
+                "up": "UP" in x["state"],
+                "ip_address": x["ipv4_addr"],
+                "mac_address": x["mac_addr"]
+            }, parsed))
 
     return parsed
+
+
+def create_status(command, specific=None):
+    match specific:
+        case "ssid":
+            out = get_ssid()
+        case "iface":
+            out = get_ifaces()
+        case "up":
+            out = get_ifaces("up")
+        case "ip":
+            out = get_ifaces("ip")
+        case "mac":
+            out = get_ifaces("mac")
+        case _:
+            out = {
+                "ssid": get_ssid(),
+                "ifaces": get_ifaces()
+            }
+
+    msg_type = "status"
+    if specific:
+        msg_type += f"/{specific}"
+
+    return create_msg(msg_type, out)
 
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
         logging.info("Connected to MQTT broker")
         # Subscribe to "Schmidt/config" for commands
-        client.subscribe(topic_config)
+        client.subscribe(topic_config_all)
+        client.subscribe(topic_config_specific)
     else:
         logging.error(f"Connection failed with code {rc}")
 
 
 def on_message(client, userdata, msg):
     # We only receive message from "Schmidt/config" topic
-    payload = msg.payload.decode()
-    logging.info("Message received: %s", payload)
-    # Expected payload:
-    # {
-    #     "cmd": command,
-    #     "mac": mac recipient (wildcard if ""),
-    # }
-    commands = json.loads(payload)
+    topic = msg.topic
+    logging.info("Message received: %s", topic)
+    splits = topic.split("/")
+    [_, target, _, command] = splits[:4]
+    extras = splits[4:]
 
     # Skip if the command is not intended for this mac
-    if "mac" in commands and commands["mac"] != "" and commands["mac"] != mac:
-        logging.info("Skipping command intended for %s.", mac)
+    if target != "all" and target != mac:
+        logging.info("Skipping command intended for %s.", target)
         return
 
-    match commands["cmd"]:
+    match command:
         case "ping":
             # Ping the Pi
             logging.info("Got ping command")
-            client.publish(
-                topic_config_res,
-                json.dumps({"mac": mac,
-                            "cmd": commands["cmd"],
-                            "res": "success",
-                            "err": ""}),
-                qos=1, retain=True)
+            msg = create_msg("ping", "")
+            client.publish(topic_report_conf, json.dumps(msg),
+                           qos=1, retain=True)
 
         case "update":
             # Run the update script
@@ -126,36 +168,26 @@ def on_message(client, userdata, msg):
                  "sigcap-buddy/main/pi-setup.sh | /bin/bash"),
                 raw_out=True)
             logging.debug(output)
-            if (output["result"] == 0):
-                client.publish(
-                    topic_config_res,
-                    json.dumps({"mac": mac,
-                                "cmd": commands["cmd"],
-                                "res": "success",
-                                "err": ""}),
-                    qos=1, retain=True)
-            else:
-                client.publish(
-                    topic_config_res,
-                    json.dumps({"mac": mac,
-                                "cmd": commands["cmd"],
-                                "res": "failed",
-                                "err": output["stderr"]}),
-                    qos=1, retain=True)
+            msg = create_msg("update", output["returncode"],
+                             (output["stderr"] if output["returncode"] != 0
+                              else ""))
+            client.publish(topic_report_conf, json.dumps(msg),
+                           qos=1, retain=True)
 
-        case "publish":
-            # TODO immediately publish report
+        case "status":
+            # TODO query status
+            # Extra options: "/(ssid|iface|up|ip|mac)"
             pass
 
         case "logs":
             # TODO send program logs and error logs
-            # Extra option "tgt": "mqtt" or "speedtest"
-            # Extra option "n": read last n lines, default 20
+            # Extra options: "/(mqtt|speedtest)/n"
+            # n: read last n lines, default 20
             pass
 
         case "restart-srv":
             # TODO restart services
-            # Extra option "tgt": "mqtt" or "speedtest"
+            # Extra options: "/(mqtt|speedtest)"
             pass
 
         case "reboot":
@@ -163,16 +195,11 @@ def on_message(client, userdata, msg):
             pass
 
         case _:
-            logging.warning("Unknown command: %s", commands[0])
+            logging.warning("Unknown command: %s", command)
 
 
 def publish_msg(client):
-    report = {
-        "mac": mac,
-        "ssid": get_ssid(),
-        "ifaces": get_ifaces(),
-        "timestamp": datetime.now(timezone.utc).astimezone().isoformat()
-    }
+    report = create_status("report")
     logging.info("Publishing report: %s", report)
     client.publish(topic_report, json.dumps(report), qos=1, retain=True)
 

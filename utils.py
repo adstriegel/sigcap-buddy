@@ -30,7 +30,7 @@ def run_cmd(cmd, logging_prefix="Running command", log_result=True,
         shell=True)
     if (raw_out):
         return {
-            "result": result.returncode,
+            "returncode": result.returncode,
             "stdout": result.stdout.decode("utf-8"),
             "stderr": result.stderr.decode("utf-8")
         }
