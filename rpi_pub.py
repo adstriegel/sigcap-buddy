@@ -156,23 +156,23 @@ def on_message(client, userdata, msg):
         case "ping":
             # Ping the Pi
             logging.info("Got ping command")
-            msg = create_msg("ping", "")
-            client.publish(topic_report_conf, json.dumps(msg),
-                           qos=1, retain=True)
+            msg = create_msg("ping", msg.payload.decode("utf-8"))
+            client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
         case "update":
             # Run the update script
             logging.info("Got update command")
+            msg = create_msg("update", "starting update...")
+            client.publish(topic_report_conf, json.dumps(msg), qos=1)
             output = utils.run_cmd(
                 ("wget -q -O - https://raw.githubusercontent.com/adstriegel/"
                  "sigcap-buddy/main/pi-setup.sh | /bin/bash"),
                 raw_out=True)
             logging.debug(output)
-            msg = create_msg("update", output["returncode"],
+            msg = create_msg("update", {"returncode": output["returncode"]},
                              (output["stderr"] if output["returncode"] != 0
                               else ""))
-            client.publish(topic_report_conf, json.dumps(msg),
-                           qos=1, retain=True)
+            client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
         case "status":
             # TODO query status
