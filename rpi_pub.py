@@ -7,6 +7,7 @@ import logging
 from logging import Formatter
 from logging.handlers import TimedRotatingFileHandler
 from paho.mqtt import client as mqtt
+from pathlib import Path
 import re
 import time
 import utils
@@ -157,6 +158,7 @@ def on_message(client, userdata, msg):
             # Ping the Pi
             logging.info("Got ping command")
             msg = create_msg("ping", msg.payload.decode("utf-8"))
+            logging.info("Sending reply: %s", msg)
             client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
         case "update":
@@ -165,14 +167,16 @@ def on_message(client, userdata, msg):
             # TODO this message is sent later with the update results
             # msg = create_msg("update", "starting update...")
             # client.publish(topic_report_conf, json.dumps(msg), qos=1)
+            # TODO if the update script restarts this script, it will stop here
             output = utils.run_cmd(
                 ("wget -q -O - https://raw.githubusercontent.com/adstriegel/"
                  "sigcap-buddy/main/pi-setup.sh | /bin/bash"),
                 raw_out=True)
             logging.debug(output)
             msg = create_msg("update", {"returncode": output["returncode"]},
-                             (output["stderr"] if output["returncode"] != 0
-                              else ""))
+                             ("" if output["returncode"] == 0
+                              else output["stderr"]))
+            logging.info("Sending reply: %s", msg)
             client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
         case "status":
@@ -206,7 +210,14 @@ def publish_msg(client):
 
 
 def load_mqtt_auth():
-    with open('.mqtt-config.json', 'r') as file:
+    auth_path = Path(".mqtt-config.json")
+    timeout_s = 60
+    while not auth_path.is_file():
+        logging.warning(("mqtt-config not found! waiting to be downloaded by "
+                         "speedtest_logger, sleeping for %d s"), timeout_s)
+        time.sleep(timeout_s)
+
+    with open(auth_path, "r") as file:
         return json.load(file)
 
 
