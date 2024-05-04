@@ -56,7 +56,7 @@ topic_report_conf = f"Schmidt/{mac}/report/config"
 topic_config_all = f"Schmidt/all/config/#"
 topic_config_specific = f"Schmidt/{mac}/config/#"
 
-# Saved last command path
+# Path to the saved message from last command
 last_cmd = Path(".last_cmd.json")
 
 
@@ -190,10 +190,6 @@ def on_message(client, userdata, msg):
         case "update":
             # Run the update script
             logging.info("Got update command")
-            # Send update starting message
-            msg = create_msg("update", "starting update...")
-            logging.info("Sending reply: %s", msg)
-            client.publish(topic_report_conf, json.dumps(msg), qos=0)
             # Write down last command, assuming successful update
             msg = create_msg("update", {"returncode": 0})
             write_last_cmd(msg)
@@ -202,7 +198,7 @@ def on_message(client, userdata, msg):
                 ("wget -q -O - https://raw.githubusercontent.com/adstriegel/"
                  "sigcap-buddy/main/pi-setup.sh | /bin/bash"),
                 raw_out=True)
-            # This may not be reached if update succeeded.
+            # This is not reached if update succeeded.
             logging.debug(output)
             # In case service not restarted due to failed update
             # (or any reasons).
