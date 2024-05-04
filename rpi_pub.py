@@ -13,11 +13,15 @@ import time
 import utils
 
 
-logdir = "/home/{}/sigcap-buddy/logs".format(getuser())
+logdir = Path(f"/home/{getuser()}/sigcap-buddy/logs")
+logpaths = {
+    "mqtt": logdir / "rpi_pub.log",
+    "speedtest": logdir / "speedtest_logger.log"
+}
 
 # Logging setup
 handler = TimedRotatingFileHandler(
-    filename="{}/rpi_pub.log".format(logdir),
+    filename=logpaths["mqtt"],
     when="D", interval=1, backupCount=90, encoding="utf-8",
     delay=False)
 formatter = Formatter(
@@ -228,13 +232,36 @@ def on_message(client, userdata, msg):
             status = create_status(specific)
             logging.info("Sending reply: %s", status)
             client.publish(topic_report_conf, json.dumps(status), qos=1)
-            pass
 
         case "logs":
             # TODO send program logs and error logs
             # Extra options: "/(mqtt|speedtest)/n"
             # n: read last n lines, default 20
-            pass
+            n_lines = "20"
+            if len(extras) > 0:
+                target = extras[0]
+                if len(extras) > 1:
+                    n_lines = extras[1]
+            else:
+                logging.error("Must specify target!")
+                msg = create_msg("logs", {"returncode": 1},
+                                 "Must specify target!")
+                logging.info("Sending reply: %s", msg)
+                client.publish(topic_report_conf, json.dumps(msg), qos=1)
+                return
+
+            logging.info("Got logs command, target: %s, n: %s",
+                         target, n_lines)
+            output = utils.run_cmd(
+                (f"tail -n {n_lines} {logpaths[target]}"),
+                raw_out=True)
+            msg = create_msg(f"logs/{target}",
+                             {"returncode": output["returncode"],
+                              "log": output["stdout"]},
+                             ("" if output["returncode"] == 0
+                              else output["stderr"]))
+            logging.info("Sending reply: %s", msg)
+            client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
         case "restartsrv":
             # Restart services
