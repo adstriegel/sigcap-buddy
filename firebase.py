@@ -95,6 +95,30 @@ def get_wifi_conn(mac):
         return wifi_ref[wifi_ref_key]
 
 
+def get_mqtt_conn():
+    logging.info("Getting MQTT connection from Firebase.")
+
+    auth_path = Path(".mqtt-config.json")
+    if auth_path.is_file():
+        logging.info("MQTT connection is already stored.")
+        return True
+
+    mqtt_ref = None
+    try:
+        mqtt_ref = db.reference("mqtt_temp").get()
+    except Exception as e:
+        logging.error("Cannot connect db wifi: %s", e, exc_info=1)
+
+    if not mqtt_ref:
+        logging.warning("Cannot find MQTT info.")
+        return False
+    else:
+        logging.info("Writing MQTT connection to %s.", auth_path)
+        with open(auth_path, "w") as file:
+            json.dump(mqtt_ref, file)
+        return True
+
+
 def upload_directory_with_transfer_manager(
     source_dir,
     mac,
