@@ -173,7 +173,6 @@ def on_connect(client, userdata, flags, rc):
         # Subscribe to "Schmidt/config" for commands
         client.subscribe(topic_config_all)
         client.subscribe(topic_config_specific)
-        restore_last_cmd(client)
     else:
         logging.error(f"Connection failed with code {rc}")
 
@@ -415,6 +414,7 @@ def main():
     client.username_pw_set(auth['username'], auth['password'])
     client.connect(config['broker_addr'], int(config['broker_port']), 60)
     client.loop_start()
+    restore_last_cmd(client)
 
     try:
         while True:
