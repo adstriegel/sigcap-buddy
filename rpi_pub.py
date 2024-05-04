@@ -108,7 +108,7 @@ def get_ifaces(specific=None):
     return parsed
 
 
-def create_status(command, specific=None):
+def create_status(specific=None):
     match specific:
         case "ssid":
             out = get_ssid()
@@ -218,8 +218,16 @@ def on_message(client, userdata, msg):
             client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
         case "status":
-            # TODO query status
+            # Query status
             # Extra options: "/(ssid|iface|up|ip|mac)"
+            specific = None
+            if len(extras) > 0:
+                specific = extras[0]
+            logging.info("Got status command, specific: %s", specific)
+
+            status = create_status(specific)
+            logging.info("Sending reply: %s", status)
+            client.publish(topic_report_conf, json.dumps(status), qos=1)
             pass
 
         case "logs":
@@ -282,7 +290,7 @@ def on_message(client, userdata, msg):
 
 
 def publish_msg(client):
-    report = create_status("report")
+    report = create_status()
     logging.info("Publishing report: %s", report)
     client.publish(topic_report, json.dumps(report), qos=1, retain=True)
 
