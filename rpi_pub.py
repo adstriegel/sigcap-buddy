@@ -371,15 +371,16 @@ def on_message(client, userdata, msg):
             write_last_cmd(msg)
 
             output = utils.run_cmd("sudo reboot", raw_out=True)
-            # This is not reached if reboot succeeded.
+            # The reboot command is not blocking regardless the results,
+            # so we only reply if the cmd throws error.
             logging.debug(output)
-            # In case Pi not rebooting for any reasons.
-            delete_last_cmd()
-            msg = create_msg("reboot", {"returncode": output["returncode"]},
-                             ("" if output["returncode"] == 0
-                              else output["stderr"]))
-            logging.info("Sending reply: %s", msg)
-            client.publish(topic_report_conf, json.dumps(msg), qos=1)
+            if output["returncode"] != 0:
+                delete_last_cmd()
+                msg = create_msg("reboot",
+                                 {"returncode": output["returncode"]},
+                                 output["stderr"])
+                logging.info("Sending reply: %s", msg)
+                client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
         case _:
             logging.warning("Unknown command: %s", command)
