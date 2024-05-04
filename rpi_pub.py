@@ -90,7 +90,7 @@ def get_ssid():
 
 
 def get_ifaces(specific=None):
-    parsed = jc.parse("ifconfig", utils.run_cmd("ifconfig"))
+    parsed = jc.parse("ifconfig", utils.run_cmd("ifconfig -a"))
     # Remove loopback
     parsed = [item for item in parsed if item["name"] != "lo"]
     # Remove unneeded parameters
