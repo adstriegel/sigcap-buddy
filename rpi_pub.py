@@ -133,6 +133,11 @@ def create_status(command, specific=None):
     return create_msg(msg_type, out)
 
 
+def delete_last_cmd():
+    logging.info("Deleting last cmd.")
+    last_cmd.unlink()
+
+
 def write_last_cmd(msg):
     logging.info("Writing msg from last cmd: %s", msg)
     with open(last_cmd, "w") as file:
@@ -152,7 +157,10 @@ def restore_last_cmd(client):
             if span.seconds < 600:
                 logging.info("Sending last cmd reply: %s", msg)
                 client.publish(topic_report_conf, json.dumps(msg), qos=1)
-        last_cmd.unlink()
+            else:
+                logging.info("Discarding old msg with timestamp %s",
+                             msg["timestamp"])
+        delete_last_cmd()
 
 
 def on_connect(client, userdata, flags, rc):
@@ -202,7 +210,7 @@ def on_message(client, userdata, msg):
             logging.debug(output)
             # In case service not restarted due to failed update
             # (or any reasons).
-            last_cmd.unlink()
+            delete_last_cmd()
             msg = create_msg("update", {"returncode": output["returncode"]},
                              ("" if output["returncode"] == 0
                               else output["stderr"]))
