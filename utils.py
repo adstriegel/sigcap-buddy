@@ -19,6 +19,7 @@ def sanitize(cmd):
     if (";" in sanitized
             or "|" in sanitized
             or ">" in sanitized
+            or "<" in sanitized
             or "&" in sanitized):
         raise Exception("Symbols not allowed in cmd!")
 

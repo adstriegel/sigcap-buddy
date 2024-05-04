@@ -131,7 +131,7 @@ def create_status(specific=None):
             }
 
     msg_type = "status"
-    if specific:
+    if specific in ["ssid", "iface", "up", "ip", "mac"]:
         msg_type += f"/{specific}"
 
     return create_msg(msg_type, out)
@@ -195,7 +195,7 @@ def on_message(client, userdata, msg):
         case "ping":
             # Ping the Pi
             logging.info("Got ping command")
-            msg = create_msg("ping", msg.payload.decode("utf-8"))
+            msg = create_msg("ping", {"pong": msg.payload.decode("utf-8")})
             logging.info("Sending reply: %s", msg)
             client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
@@ -223,7 +223,7 @@ def on_message(client, userdata, msg):
 
         case "status":
             # Query status
-            # Extra options: "/(ssid|iface|up|ip|mac)"
+            # Extra options: "/[ssid|iface|up|ip|mac]"
             specific = None
             if len(extras) > 0:
                 specific = extras[0]
@@ -235,14 +235,30 @@ def on_message(client, userdata, msg):
 
         case "logs":
             # TODO send program logs and error logs
-            # Extra options: "/(mqtt|speedtest)/n"
+            # Extra options: "/(mqtt|speedtest)/[n]"
             # n: read last n lines, default 20
             logging.info("Got logs command.")
-            n_lines = "20"
+            n_lines = 20
             if len(extras) > 0:
                 target = extras[0]
+                if target not in logpaths:
+                    logging.error("Invalid target! %s", target)
+                    msg = create_msg("logs", {"returncode": 1},
+                                     "Invalid target!")
+                    logging.info("Sending reply: %s", msg)
+                    client.publish(topic_report_conf, json.dumps(msg), qos=1)
+                    return
                 if len(extras) > 1:
-                    n_lines = extras[1]
+                    try:
+                        n_lines = int(extras[1])
+                    except Exception:
+                        logging.error("Invalid number of lines! %s", extras[1])
+                        msg = create_msg("logs", {"returncode": 1},
+                                         "Invalid number of lines!")
+                        logging.info("Sending reply: %s", msg)
+                        client.publish(topic_report_conf, json.dumps(msg),
+                                       qos=1)
+                        return
             else:
                 logging.error("Must specify target!")
                 msg = create_msg("logs", {"returncode": 1},
@@ -269,10 +285,17 @@ def on_message(client, userdata, msg):
             logging.info("Got gitreset command.")
             if len(extras) > 0:
                 branch_name = extras[0]
+                if branch_name not in ["main", "testing", "experimental"]:
+                    logging.error("Invalid branch name! %s", branch_name)
+                    msg = create_msg("gitreset", {"returncode": 1},
+                                     "Invalid branch name!")
+                    logging.info("Sending reply: %s", msg)
+                    client.publish(topic_report_conf, json.dumps(msg), qos=1)
+                    return
             else:
-                logging.error("Must specify branch_name!")
+                logging.error("Must specify branch name!")
                 msg = create_msg("gitreset", {"returncode": 1},
-                                 "Must specify branch_name!")
+                                 "Must specify branch name!")
                 logging.info("Sending reply: %s", msg)
                 client.publish(topic_report_conf, json.dumps(msg), qos=1)
                 return
@@ -291,10 +314,17 @@ def on_message(client, userdata, msg):
 
         case "restartsrv":
             # Restart services
-            # Extra options: "/(mqtt|speedtest)"
+            # Extra options: "/[mqtt|speedtest]"
             target = "all"
             if len(extras) > 0:
                 target = extras[0]
+                if target not in logpaths:
+                    logging.error("Invalid target! %s", target)
+                    msg = create_msg("restartsrv", {"returncode": 1},
+                                     "Invalid target!")
+                    logging.info("Sending reply: %s", msg)
+                    client.publish(topic_report_conf, json.dumps(msg), qos=1)
+                    return
             logging.info("Got restartsrv command, target: %s", target)
 
             outdict = dict()
