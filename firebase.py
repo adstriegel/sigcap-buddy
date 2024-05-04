@@ -183,7 +183,7 @@ def upload_directory_with_transfer_manager(
                             name, result)
         else:
             logging.info("Uploaded %s.", name)
-            if name != "speedtest_logger.log":
+            if name != "speedtest_logger.log" and name != "rpi_pub.log":
                 local_copy = Path("{}/{}".format(source_dir, name))
                 local_copy.unlink()
                 logging.info("Deleted local copy: %s.", local_copy)
