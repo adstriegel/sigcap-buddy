@@ -237,6 +237,7 @@ def on_message(client, userdata, msg):
             # TODO send program logs and error logs
             # Extra options: "/(mqtt|speedtest)/n"
             # n: read last n lines, default 20
+            logging.info("Got logs command.")
             n_lines = "20"
             if len(extras) > 0:
                 target = extras[0]
@@ -250,14 +251,39 @@ def on_message(client, userdata, msg):
                 client.publish(topic_report_conf, json.dumps(msg), qos=1)
                 return
 
-            logging.info("Got logs command, target: %s, n: %s",
-                         target, n_lines)
+            logging.info("Target: %s, n: %s", target, n_lines)
             output = utils.run_cmd(
                 (f"tail -n {n_lines} {logpaths[target]}"),
                 raw_out=True)
             msg = create_msg(f"logs/{target}",
                              {"returncode": output["returncode"],
                               "log": output["stdout"]},
+                             ("" if output["returncode"] == 0
+                              else output["stderr"]))
+            logging.info("Sending reply: %s", msg)
+            client.publish(topic_report_conf, json.dumps(msg), qos=1)
+
+        case "gitreset":
+            # Restart services
+            # Extra options: "/branch_name"
+            logging.info("Got gitreset command.")
+            if len(extras) > 0:
+                branch_name = extras[0]
+            else:
+                logging.error("Must specify branch_name!")
+                msg = create_msg("gitreset", {"returncode": 1},
+                                 "Must specify branch_name!")
+                logging.info("Sending reply: %s", msg)
+                client.publish(topic_report_conf, json.dumps(msg), qos=1)
+                return
+
+            logging.info("Branch name: %s", branch_name)
+            output = utils.run_cmd(
+                (f"git fetch && git reset --hard origin/{branch_name}"),
+                raw_out=True)
+            msg = create_msg(f"gitreset/{branch_name}",
+                             {"returncode": output["returncode"],
+                              "stdout": output["stdout"]},
                              ("" if output["returncode"] == 0
                               else output["stderr"]))
             logging.info("Sending reply: %s", msg)
