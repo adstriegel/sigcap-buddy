@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import firebase
 from getpass import getuser
 import jc
@@ -55,6 +55,9 @@ topic_report_conf = f"Schmidt/{mac}/report/config"
 # Subscribed topics
 topic_config_all = f"Schmidt/all/config/#"
 topic_config_specific = f"Schmidt/{mac}/config/#"
+
+# Saved last command path
+last_cmd = Path(".last_cmd.json")
 
 
 def create_msg(msg_type, out, err=""):
@@ -130,12 +133,35 @@ def create_status(command, specific=None):
     return create_msg(msg_type, out)
 
 
+def write_last_cmd(msg):
+    logging.info("Writing msg from last cmd: %s", msg)
+    with open(last_cmd, "w") as file:
+        json.dump(msg, file)
+
+
+def restore_last_cmd(client):
+    logging.info("Restoring msg from last cmd.")
+    if last_cmd.is_file():
+        with open(last_cmd, "r") as file:
+            msg = json.load(file)
+        logging.debug("Got msg: %s", msg)
+        if "timestamp" in msg:
+            span = datetime.now(timezone.utc) - datetime.fromisoformat(
+                msg["timestamp"])
+            # Check if the msg is posted less than 10 minutes ago
+            if span.seconds < 600:
+                logging.info("Sending last cmd reply: %s", msg)
+                client.publish(topic_report_conf, json.dumps(msg), qos=1)
+        last_cmd.unlink()
+
+
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
         logging.info("Connected to MQTT broker")
         # Subscribe to "Schmidt/config" for commands
         client.subscribe(topic_config_all)
         client.subscribe(topic_config_specific)
+        restore_last_cmd(client)
     else:
         logging.error(f"Connection failed with code {rc}")
 
@@ -164,15 +190,23 @@ def on_message(client, userdata, msg):
         case "update":
             # Run the update script
             logging.info("Got update command")
-            # TODO this message is sent later with the update results
-            # msg = create_msg("update", "starting update...")
-            # client.publish(topic_report_conf, json.dumps(msg), qos=1)
-            # TODO if the update script restarts this script, it will stop here
+            # Send update starting message
+            msg = create_msg("update", "starting update...")
+            logging.info("Sending reply: %s", msg)
+            client.publish(topic_report_conf, json.dumps(msg), qos=0)
+            # Write down last command, assuming successful update
+            msg = create_msg("update", {"returncode": 0})
+            write_last_cmd(msg)
+
             output = utils.run_cmd(
                 ("wget -q -O - https://raw.githubusercontent.com/adstriegel/"
                  "sigcap-buddy/main/pi-setup.sh | /bin/bash"),
                 raw_out=True)
+            # This may not be reached if update succeeded.
             logging.debug(output)
+            # In case service not restarted due to failed update
+            # (or any reasons).
+            last_cmd.unlink()
             msg = create_msg("update", {"returncode": output["returncode"]},
                              ("" if output["returncode"] == 0
                               else output["stderr"]))
@@ -231,12 +265,15 @@ def main():
     auth = load_mqtt_auth()
     client.username_pw_set(auth['username'], auth['password'])
     client.connect(config['broker_addr'], int(config['broker_port']), 60)
-
     client.loop_start()
 
     try:
         while True:
             publish_msg(client)
+            logging.info("Sleeping for {}s, waking up at {}".format(
+                config["publish_interval"],
+                (datetime.now(timezone.utc).astimezone() + timedelta(
+                    0, config["publish_interval"])).isoformat()))
             time.sleep(config["publish_interval"])
     except KeyboardInterrupt:
         logging.info("Disconnecting from the broker...")
