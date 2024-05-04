@@ -335,8 +335,22 @@ def on_message(client, userdata, msg):
             client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
         case "reboot":
-            # TODO reboot Pi
-            pass
+            # Reboot Pi
+            logging.info("Got reboot command")
+            # Write down last command, assuming successful update
+            msg = create_msg("reboot", {"returncode": 0})
+            write_last_cmd(msg)
+
+            output = utils.run_cmd("sudo reboot", raw_out=True)
+            # This is not reached if reboot succeeded.
+            logging.debug(output)
+            # In case Pi not rebooting for any reasons.
+            delete_last_cmd()
+            msg = create_msg("reboot", {"returncode": output["returncode"]},
+                             ("" if output["returncode"] == 0
+                              else output["stderr"]))
+            logging.info("Sending reply: %s", msg)
+            client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
         case _:
             logging.warning("Unknown command: %s", command)
