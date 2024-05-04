@@ -149,7 +149,7 @@ def restore_last_cmd(client):
     if last_cmd.is_file():
         with open(last_cmd, "r") as file:
             msg = json.load(file)
-        logging.debug("Got msg: %s", msg)
+        logging.debug("Got last cmd msg: %s", msg)
         if "timestamp" in msg:
             span = datetime.now(timezone.utc) - datetime.fromisoformat(
                 msg["timestamp"])
@@ -228,10 +228,50 @@ def on_message(client, userdata, msg):
             # n: read last n lines, default 20
             pass
 
-        case "restart-srv":
-            # TODO restart services
+        case "restartsrv":
+            # Restart services
             # Extra options: "/(mqtt|speedtest)"
-            pass
+            target = "all"
+            if len(extras) > 0:
+                target = extras[0]
+            logging.info("Got restartsrv command, target: %s", target)
+
+            outdict = dict()
+            errdict = dict()
+            if (target == "all") or (target == "speedtest"):
+                logging.info("Restarting speedtest...")
+                output = utils.run_cmd(
+                    "sudo systemctl restart speedtest_logger.service",
+                    raw_out=True)
+                logging.debug(output)
+                outdict["speedtest"] = output["returncode"]
+                if output["returncode"] != 0:
+                    errdict["speedtest"] = output["stderr"]
+            if (target == "all") or (target == "mqtt"):
+                logging.info("Restarting mqtt...")
+                # Write down last command, assuming successful update
+                outdict["mqtt"] = 0
+                msg = create_msg("restartsrv", {"returncode": outdict},
+                                 "" if len(errdict.keys()) == 0 else errdict)
+                write_last_cmd(msg)
+
+                # Actually run the command
+                output = utils.run_cmd(
+                    "sudo systemctl restart mqtt.service",
+                    raw_out=True)
+                # This is not reached if command succeeded.
+                logging.debug(output)
+                # Delete last cmd and write the actual returncode.
+                delete_last_cmd()
+                outdict["mqtt"] = output["returncode"]
+                if outdict["returncode"] != 0:
+                    errdict["mqtt"] = output["stderr"]
+
+            # If target is not mqtt, or mqtt restart error
+            msg = create_msg("restartsrv", {"returncode": outdict},
+                             "" if len(errdict.keys()) == 0 else errdict)
+            logging.info("Sending reply: %s", msg)
+            client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
         case "reboot":
             # TODO reboot Pi
