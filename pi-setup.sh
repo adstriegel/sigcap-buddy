@@ -12,19 +12,19 @@ fi
 /home/$USER/venv_firebase/bin/python -m pip install firebase-admin jc paho-mqtt
 
 # 2. git clone/pull sigcap-buddy
-if [ ! -d /home/$USER/sigcap-buddy ]; then
-	git clone https://github.com/adstriegel/sigcap-buddy
-else
-	cd /home/$USER/sigcap-buddy
-	git pull
-	cd ~
+BRANCH_NAME="main"
+if [ -f /home/$USER/.testing ]; then
+	BRANCH_NAME="testing"
+elif [ -f /home/$USER/.experimental ]; then
+	BRANCH_NAME="experimental"
 fi
 
-# 2.1. checkout to testing branch if a .testing file is detected
-if [ -f /home/$USER/.testing ]; then
+if [ ! -d /home/$USER/sigcap-buddy ]; then
+	git clone -b $BRANCH_NAME https://github.com/adstriegel/sigcap-buddy
+else
 	cd /home/$USER/sigcap-buddy
-	BRANCH_NAME="testing"
 
+	# 2.1. switch to other branch if needed
 	# Check if branch exists
 	if [ ! `git rev-parse --verify $BRANCH_NAME 2> /dev/null` ] ; then
 		# Create new branch and set upstream tracking
@@ -103,5 +103,7 @@ fi
 # 7. Set update cron
 cron_list=`crontab -l 2>&1`
 if [[ ! $cron_list == *"pi-setup.sh"* ]] ; then
-	(crontab -l ; echo "$((RANDOM % 60)) 0 * * * wget -q -O - https://raw.githubusercontent.com/adstriegel/sigcap-buddy/main/pi-setup.sh | /bin/bash") 2>&1 | grep -v "no crontab" | sort | uniq | crontab -
+	(crontab -l ; echo "$((RANDOM % 60)) 0 * * * wget -q -O - https://raw.githubusercontent.com/adstriegel/sigcap-buddy/$BRANCH_NAME/pi-setup.sh | /bin/bash") 2>&1 | grep -v "no crontab" | sort | uniq | crontab -
+elif [[ ! $cron_list == *$BRANCH_NAME"/pi-setup.sh"* ]] ; then
+	echo ${cron_list/buddy\/*\/pi-/buddy\/$BRANCH_NAME\/pi-} | sort | uniq | crontab -
 fi
