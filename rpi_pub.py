@@ -410,6 +410,9 @@ def main():
         callback_api_version=mqtt.CallbackAPIVersion.VERSION1)
     client.on_connect = on_connect
     client.on_message = on_message
+    # This is needed because when the thread throws exception, the main process
+    # will still running and systemctl will not restart the script.
+    client.suppress_exceptions = True
 
     auth = load_mqtt_auth()
     client.username_pw_set(auth['username'], auth['password'])
