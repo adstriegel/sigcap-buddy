@@ -157,7 +157,8 @@ def upload_directory_with_transfer_manager(
     paths = directory_as_path_obj.rglob("*")
 
     # Filter so the list only includes files, not directories themselves.
-    file_paths = [path for path in paths if path.is_file()]
+    file_paths = [path for path in paths
+                  if path.is_file() and not path.name.endswith(".log")]
 
     # These paths are relative to the current working directory. Next, make
     # them relative to `directory`
