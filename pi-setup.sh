@@ -56,11 +56,13 @@ tar -xf /tmp/ookla-speedtest-1.2.0-linux-$(arch).tgz -C /home/$USER/sigcap-buddy
 /home/$USER/sigcap-buddy/speedtest --accept-license --progress=no
 
 # 5. Fetch firebase auth
-if [ ! -f /home/$USER/sigcap-buddy/nd-schmidt-firebase-*.json ]; then
-	wget --user nsadmin --ask-password -P /home/$USER/sigcap-buddy http://ns-mn1.cse.nd.edu/firebase/nd-schmidt-firebase-adminsdk-d1gei-43db929d8a.json
-fi
-if [ ! -f /home/$USER/sigcap-buddy/.mqtt-config.json ]; then
-	wget --user nsadmin --ask-password -P /home/$USER/sigcap-buddy http://ns-mn1.cse.nd.edu/firebase/.mqtt-config.json
+if [[ `tty` != "not a tty" ]]; then
+	if [ ! -f /home/$USER/sigcap-buddy/nd-schmidt-firebase-*.json ]; then
+		wget --user nsadmin --ask-password -P /home/$USER/sigcap-buddy http://ns-mn1.cse.nd.edu/firebase/nd-schmidt-firebase-adminsdk-d1gei-43db929d8a.json
+	fi
+	if [ ! -f /home/$USER/sigcap-buddy/.mqtt-config.json ]; then
+		wget --user nsadmin --ask-password -P /home/$USER/sigcap-buddy http://ns-mn1.cse.nd.edu/firebase/.mqtt-config.json
+	fi
 fi
 
 # 6. Enable/restart speedtest_logger service
@@ -105,5 +107,5 @@ cron_list=`crontab -l 2>&1`
 if [[ ! $cron_list == *"pi-setup.sh"* ]] ; then
 	(crontab -l ; echo "$((RANDOM % 60)) 0 * * * wget -q -O - https://raw.githubusercontent.com/adstriegel/sigcap-buddy/$BRANCH_NAME/pi-setup.sh | /bin/bash") 2>&1 | grep -v "no crontab" | sort | uniq | crontab -
 elif [[ ! $cron_list == *$BRANCH_NAME"/pi-setup.sh"* ]] ; then
-	echo ${cron_list/buddy\/*\/pi-/buddy\/$BRANCH_NAME\/pi-} | sort | uniq | crontab -
+	echo "${cron_list/buddy\/*\/pi-/buddy\/$BRANCH_NAME\/pi-}" | sort | uniq | crontab -
 fi
