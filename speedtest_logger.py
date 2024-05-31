@@ -227,6 +227,15 @@ def run_iperf(test_uuid, server, port, direction, duration, dev, timeout_s):
         ), "w") as log_file:
             log_file.write(json.dumps(result_json))
 
+        if direction == "dl":
+            data_used = result_json["end"]["sum_received"]["bytes"] / 1e9
+        else:
+            data_used = result_json["end"]["sum_sent"]["bytes"] / 1e9
+        logging.info("Data used for iperf %.3f GB", data_used)
+        return data_used
+    else:
+        return 0
+
 
 def run_speedtest(test_uuid, timeout_s):
     # Run the speedtest command
@@ -245,6 +254,13 @@ def run_speedtest(test_uuid, timeout_s):
             datetime.now(timezone.utc).astimezone().isoformat()
         ), "w") as log_file:
             log_file.write(json.dumps(result_json))
+
+        data_used = (result_json["download"]["bytes"]
+                     + result_json["upload"]["bytes"]) / 1e9
+        logging.info("Data used for Ookla %.3f GB", data_used)
+        return data_used
+    else:
+        return 0
 
 
 def scan_wifi(iface, extra):
@@ -334,13 +350,18 @@ def resolve_run_ping_async(resolve_obj, extra):
 
 
 def main():
+    curr_usage_gbytes = firebase.get_data_used(mac)
+    logging.info("Got lastest usage data: %.3f GB", curr_usage_gbytes)
     logging.info("Upload previously recorded logs on startup.")
-    firebase.upload_directory_with_transfer_manager(
+    temp_used = firebase.upload_directory_with_transfer_manager(
         source_dir=logdir,
         mac=mac)
+    firebase.push_data_used(mac, temp_used)
+    curr_usage_gbytes += temp_used
 
     while True:
         logging.info("Starting tests.")
+        this_session_usage = 0
 
         # Update config
         config = firebase.read_config(mac)
@@ -379,41 +400,50 @@ def main():
             # Disabled while FMNC is down
             # run_fmnc()
 
-            # iperf downlink
-            resolve_ping_obj = run_ping_async(
-                "eth0",
-                ping_target=config["ping_target"])
-            run_iperf(test_uuid=config["test_uuid"],
-                      server=config["iperf_server"],
-                      port=randint(config["iperf_minport"],
-                                   config["iperf_maxport"]),
-                      direction="dl", duration=config["iperf_duration"],
-                      dev="eth0", timeout_s=config["timeout_s"])
-            resolve_run_ping_async(
-                resolve_ping_obj,
-                extra={
-                    "test_uuid": config["test_uuid"],
-                    "corr_test": "iperf-dl"})
+            if ((curr_usage_gbytes + this_session_usage)
+                    < config["data_cap_gbytes"]):
+                # iperf downlink
+                resolve_ping_obj = run_ping_async(
+                    "eth0",
+                    ping_target=config["ping_target"])
+                this_session_usage += run_iperf(
+                    test_uuid=config["test_uuid"],
+                    server=config["iperf_server"],
+                    port=randint(config["iperf_minport"],
+                                 config["iperf_maxport"]),
+                    direction="dl", duration=config["iperf_duration"],
+                    dev="eth0", timeout_s=config["timeout_s"])
+                resolve_run_ping_async(
+                    resolve_ping_obj,
+                    extra={
+                        "test_uuid": config["test_uuid"],
+                        "corr_test": "iperf-dl"})
 
-            # iperf uplink
-            resolve_ping_obj = run_ping_async(
-                "eth0",
-                ping_target=config["ping_target"])
-            run_iperf(test_uuid=config["test_uuid"],
-                      server=config["iperf_server"],
-                      port=randint(config["iperf_minport"],
-                                   config["iperf_maxport"]),
-                      direction="ul", duration=config["iperf_duration"],
-                      dev="eth0", timeout_s=config["timeout_s"])
-            resolve_run_ping_async(
-                resolve_ping_obj,
-                extra={
-                    "test_uuid": config["test_uuid"],
-                    "corr_test": "iperf-ul"})
+            if ((curr_usage_gbytes + this_session_usage)
+                    < config["data_cap_gbytes"]):
+                # iperf uplink
+                resolve_ping_obj = run_ping_async(
+                    "eth0",
+                    ping_target=config["ping_target"])
+                this_session_usage += run_iperf(
+                    test_uuid=config["test_uuid"],
+                    server=config["iperf_server"],
+                    port=randint(config["iperf_minport"],
+                                 config["iperf_maxport"]),
+                    direction="ul", duration=config["iperf_duration"],
+                    dev="eth0", timeout_s=config["timeout_s"])
+                resolve_run_ping_async(
+                    resolve_ping_obj,
+                    extra={
+                        "test_uuid": config["test_uuid"],
+                        "corr_test": "iperf-ul"})
 
-            # Ookla Speedtest
-            run_speedtest(test_uuid=config["test_uuid"],
-                          timeout_s=config["timeout_s"])
+            if ((curr_usage_gbytes + this_session_usage)
+                    < config["data_cap_gbytes"]):
+                # Ookla Speedtest
+                this_session_usage += run_speedtest(
+                    test_uuid=config["test_uuid"],
+                    timeout_s=config["timeout_s"])
 
             if (conn_status["wifi"]):
                 set_interface_up(config["wireless_interface"],
@@ -437,61 +467,73 @@ def main():
             # Disabled while FMNC is down
             # run_fmnc()
 
-            # iperf downlink
-            resolve_ping_obj = run_ping_async(
-                config["wireless_interface"],
-                ping_target=config["ping_target"])
-            resolve_scan_obj = scan_wifi_async(config["wireless_interface"])
-            run_iperf(test_uuid=config["test_uuid"],
-                      server=config["iperf_server"],
-                      port=randint(config["iperf_minport"],
-                                   config["iperf_maxport"]),
-                      direction="dl", duration=config["iperf_duration"],
-                      dev=config["wireless_interface"],
-                      timeout_s=config["timeout_s"])
-            resolve_run_ping_async(
-                resolve_ping_obj,
-                extra={
-                    "test_uuid": config["test_uuid"],
-                    "corr_test": "iperf-dl"})
-            resolve_scan_wifi_async(
-                resolve_scan_obj,
-                extra={
-                    "test_uuid": config["test_uuid"],
-                    "corr_test": "iperf-dl"})
+            if ((curr_usage_gbytes + this_session_usage)
+                    < config["data_cap_gbytes"]):
+                # iperf downlink
+                resolve_ping_obj = run_ping_async(
+                    config["wireless_interface"],
+                    ping_target=config["ping_target"])
+                resolve_scan_obj = scan_wifi_async(
+                    config["wireless_interface"])
+                this_session_usage += run_iperf(
+                    test_uuid=config["test_uuid"],
+                    server=config["iperf_server"],
+                    port=randint(config["iperf_minport"],
+                                 config["iperf_maxport"]),
+                    direction="dl", duration=config["iperf_duration"],
+                    dev=config["wireless_interface"],
+                    timeout_s=config["timeout_s"])
+                resolve_run_ping_async(
+                    resolve_ping_obj,
+                    extra={
+                        "test_uuid": config["test_uuid"],
+                        "corr_test": "iperf-dl"})
+                resolve_scan_wifi_async(
+                    resolve_scan_obj,
+                    extra={
+                        "test_uuid": config["test_uuid"],
+                        "corr_test": "iperf-dl"})
 
-            # iperf uplink
-            resolve_ping_obj = run_ping_async(
-                config["wireless_interface"],
-                ping_target=config["ping_target"])
-            resolve_scan_obj = scan_wifi_async(config["wireless_interface"])
-            run_iperf(test_uuid=config["test_uuid"],
-                      server=config["iperf_server"],
-                      port=randint(config["iperf_minport"],
-                                   config["iperf_maxport"]),
-                      direction="ul", duration=config["iperf_duration"],
-                      dev=config["wireless_interface"],
-                      timeout_s=config["timeout_s"])
-            resolve_run_ping_async(
-                resolve_ping_obj,
-                extra={
-                    "test_uuid": config["test_uuid"],
-                    "corr_test": "iperf-ul"})
-            resolve_scan_wifi_async(
-                resolve_scan_obj,
-                extra={
-                    "test_uuid": config["test_uuid"],
-                    "corr_test": "iperf-ul"})
+            if ((curr_usage_gbytes + this_session_usage)
+                    < config["data_cap_gbytes"]):
+                # iperf uplink
+                resolve_ping_obj = run_ping_async(
+                    config["wireless_interface"],
+                    ping_target=config["ping_target"])
+                resolve_scan_obj = scan_wifi_async(
+                    config["wireless_interface"])
+                this_session_usage += run_iperf(
+                    test_uuid=config["test_uuid"],
+                    server=config["iperf_server"],
+                    port=randint(config["iperf_minport"],
+                                 config["iperf_maxport"]),
+                    direction="ul", duration=config["iperf_duration"],
+                    dev=config["wireless_interface"],
+                    timeout_s=config["timeout_s"])
+                resolve_run_ping_async(
+                    resolve_ping_obj,
+                    extra={
+                        "test_uuid": config["test_uuid"],
+                        "corr_test": "iperf-ul"})
+                resolve_scan_wifi_async(
+                    resolve_scan_obj,
+                    extra={
+                        "test_uuid": config["test_uuid"],
+                        "corr_test": "iperf-ul"})
 
-            # Ookla Speedtest
-            resolve_scan_obj = scan_wifi_async(config["wireless_interface"])
-            run_speedtest(test_uuid=config["test_uuid"],
-                          timeout_s=config["timeout_s"])
-            resolve_scan_wifi_async(
-                resolve_scan_obj,
-                extra={
-                    "test_uuid": config["test_uuid"],
-                    "corr_test": "speedtest"})
+            if ((curr_usage_gbytes + this_session_usage)
+                    < config["data_cap_gbytes"]):
+                # Ookla Speedtest
+                resolve_scan_obj = scan_wifi_async(
+                    config["wireless_interface"])
+                this_session_usage += run_speedtest(
+                    test_uuid=config["test_uuid"],
+                    timeout_s=config["timeout_s"])
+                resolve_scan_wifi_async(
+                    resolve_scan_obj,
+                    extra={
+                        "test_uuid": config["test_uuid"],
+                        "corr_test": "speedtest"})
 
             if (conn_status["eth"]):
                 set_interface_up("eth0", conn_status["eth"])
@@ -504,9 +546,11 @@ def main():
 
         # Upload
         # TODO: Might run on a different interval in the future.
-        firebase.upload_directory_with_transfer_manager(
+        this_session_usage += firebase.upload_directory_with_transfer_manager(
             source_dir=logdir,
             mac=mac)
+        firebase.push_data_used(mac, this_session_usage)
+        curr_usage_gbytes += this_session_usage
 
         # Sleep for interval + random backoff
         interval = config["speedtest_interval"] * 60 + randint(0, 60)

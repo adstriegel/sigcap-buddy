@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
@@ -43,7 +43,8 @@ def read_config(mac):
 
 def push_heartbeat(mac):
     hb_append_ref = db.reference("hb_append").child(mac)
-    timestamp = datetime.timestamp(datetime.now()) * 1000
+    now = datetime.now()
+    timestamp = datetime.timestamp(now) * 1000
     logging.info("Pushing heartbeat with timestamp %f", timestamp)
 
     try:
@@ -75,6 +76,65 @@ def push_heartbeat(mac):
             hb_append_ref.push().set(entry)
     except Exception as e:
         logging.error("Cannot connect db hb_append: %s", e, exc_info=1)
+
+
+def get_data_used(mac):
+    data_used_ref = db.reference("data_used").child(mac)
+    try:
+        found = data_used_ref.order_by_child(
+            "last_timestamp").limit_to_last(1).get()
+        if (found and len(found) > 0):
+            key = list(found.keys())[0]
+            return found[key]["data_used_gbytes"]
+        else:
+            return 0
+    except Exception as e:
+        logging.error("Cannot connect db data_used: %s", e, exc_info=1)
+        return 0
+
+
+def push_data_used(mac, data_used_gbytes):
+    data_used_ref = db.reference("data_used").child(mac)
+    now = datetime.now(timezone.utc).astimezone()
+    logging.info("Pushing data used: %f GB", data_used_gbytes)
+
+    try:
+        found = data_used_ref.order_by_child(
+            "last_timestamp").limit_to_last(1).get()
+        updated = False
+
+        if (found and len(found) > 0):
+            key = list(found.keys())[0]
+            start_timestamp = datetime.fromisoformat(
+                found[key]["start_timestamp"])
+            last_timestamp = datetime.fromisoformat(
+                found[key]["last_timestamp"])
+            curr_used = found[key]["data_used_gbytes"]
+            timedelta_total = now - start_timestamp
+            if (timedelta_total.days < 32
+                    and now.day >= last_timestamp.day):
+                logging.debug(("Updating key %s mac %s last_timestamp %s "
+                               "data used %.3f GB"),
+                              key, mac, now.isoformat(timespec="seconds"),
+                              (curr_used + data_used_gbytes))
+                ref = data_used_ref.child(key)
+                ref.update({
+                    "last_timestamp": now.isoformat(timespec="seconds"),
+                    "data_used_gbytes": curr_used + data_used_gbytes
+                })
+                updated = True
+
+        if (not updated):
+            entry = {
+                "start_timestamp": now.isoformat(timespec="seconds"),
+                "last_timestamp": now.isoformat(timespec="seconds"),
+                "data_used_gbytes": data_used_gbytes
+            }
+            print("new entry:", entry)
+            data_used_ref.push().set(entry)
+
+    except Exception as e:
+        logging.error("Cannot connect db data_used: %s", e, exc_info=1)
 
 
 def get_wifi_conn(mac):
@@ -159,6 +219,8 @@ def upload_directory_with_transfer_manager(
     # Filter so the list only includes files, not directories themselves.
     file_paths = [path for path in paths
                   if path.is_file() and not path.name.endswith(".log")]
+    total_size_gbytes = (sum([path.stat().st_size for path in file_paths])
+                         / 1e9)
 
     # These paths are relative to the current working directory. Next, make
     # them relative to `directory`
@@ -172,7 +234,7 @@ def upload_directory_with_transfer_manager(
     # Start the upload.
     results = transfer_manager.upload_many_from_filenames(
         bucket, string_paths, source_directory=source_dir,
-        max_workers=workers, blob_name_prefix="{}/".format(mac)
+        max_workers=workers, blob_name_prefix=f"{mac}/"
     )
 
     for name, result in zip(string_paths, results):
@@ -188,3 +250,5 @@ def upload_directory_with_transfer_manager(
                 local_copy = Path("{}/{}".format(source_dir, name))
                 local_copy.unlink()
                 logging.info("Deleted local copy: %s.", local_copy)
+
+    return total_size_gbytes
