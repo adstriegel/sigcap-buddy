@@ -179,7 +179,7 @@ def get_mqtt_conn():
         return True
 
 
-def upload_directory_with_transfer_manager(
+def upload_directory(
     source_dir,
     mac,
     workers=8
