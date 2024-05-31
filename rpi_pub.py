@@ -363,6 +363,35 @@ def on_message(client, userdata, msg):
             logging.info("Sending reply: %s", msg)
             client.publish(topic_report_conf, json.dumps(msg), qos=1)
 
+        case "disablesrv":
+            # Disable service, only speedtest_logger can be disabled
+            logging.info("Got disablesrv command, disabling "
+                         "speedtest_logger...")
+
+            output = utils.run_cmd(
+                "sudo systemctl stop speedtest_logger.service",
+                raw_out=True)
+            logging.debug(output)
+            if (output["returncode"] == 0):
+                output = utils.run_cmd(
+                    "sudo systemctl disable speedtest_logger.service",
+                    raw_out=True)
+                logging.debug(output)
+            else:
+                output["stderr"] = ("Error when stopping speedtest_logger: "
+                                    f"{output['stderr']}")
+            if (output["returncode"] == 0):
+                output = utils.run_cmd("crontab -r", raw_out=True)
+                logging.debug(output)
+            else:
+                output["stderr"] = ("Error when disabling speedtest_logger: "
+                                    f"{output['stderr']}")
+            msg = create_msg("disablesrv",
+                             {"returncode": output["returncode"]},
+                             output["stderr"])
+            logging.info("Sending reply: %s", msg)
+            client.publish(topic_report_conf, json.dumps(msg), qos=1)
+
         case "reboot":
             # Reboot Pi
             logging.info("Got reboot command")
