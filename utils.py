@@ -21,6 +21,7 @@ def sanitize(cmd):
             or ">" in sanitized
             or "<" in sanitized
             or "&" in sanitized):
+        logging.error("Unaccepted symbols on command: %s", cmd)
         raise Exception("Symbols not allowed in cmd!")
 
 
