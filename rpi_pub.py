@@ -112,6 +112,16 @@ def get_ifaces(specific=None):
     return parsed
 
 
+def get_services():
+    parsed = jc.parse("systemctl", utils.run_cmd("systemctl -a"))
+    # Look for mqtt and speedtest_logger
+    parsed = [item for item in parsed if (
+        item["unit"] == "mqtt.service"
+        or item["unit"] == "speedtest_logger.service")]
+
+    return parsed
+
+
 def create_status(specific=None):
     match specific:
         case "ssid":
@@ -124,10 +134,13 @@ def create_status(specific=None):
             out = get_ifaces("ip")
         case "mac":
             out = get_ifaces("mac")
+        case "mac":
+            out = get_services()
         case _:
             out = {
                 "ssid": get_ssid(),
-                "ifaces": get_ifaces()
+                "ifaces": get_ifaces(),
+                "services": get_services()
             }
 
     msg_type = "status"
