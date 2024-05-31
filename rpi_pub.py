@@ -144,7 +144,7 @@ def create_status(specific=None):
             }
 
     msg_type = "status"
-    if specific in ["ssid", "iface", "up", "ip", "mac"]:
+    if specific in ["ssid", "iface", "up", "ip", "mac", "srv"]:
         msg_type += f"/{specific}"
 
     return create_msg(msg_type, out)
@@ -235,7 +235,7 @@ def on_message(client, userdata, msg):
 
         case "status":
             # Query status
-            # Extra options: "/[ssid|iface|up|ip|mac]"
+            # Extra options: "/[ssid|iface|up|ip|mac|srv]"
             specific = None
             if len(extras) > 0:
                 specific = extras[0]
