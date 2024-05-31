@@ -134,7 +134,7 @@ def create_status(specific=None):
             out = get_ifaces("ip")
         case "mac":
             out = get_ifaces("mac")
-        case "mac":
+        case "srv":
             out = get_services()
         case _:
             out = {
