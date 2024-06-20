@@ -39,9 +39,6 @@ except Exception as e:
 
 logging.info("eth0 MAC address: %s", mac)
 
-# Retrieve MQTT connection
-firebase.get_mqtt_conn()
-
 
 def set_interface_down(iface, conn=False):
     logging.info("Setting interface %s down.", iface)
