@@ -131,9 +131,9 @@ def setup_network(wifi_conn, wireless_iface, monitor_iface):
     # Try connect Wi-Fi using info from Firebase
     if (not conn_found and wifi_conn):
         result = utils.run_cmd(
-            "sudo nmcli device wifi connect {} password {}".format(
+            "sudo nmcli device wifi connect \"{}\" password \"{}\"".format(
                 wifi_conn["ssid"], wifi_conn["pass"]),
-            "Adding SSID {}".format(wifi_conn["ssid"]))
+            "Adding SSID \"{}\"".format(wifi_conn["ssid"]))
         conn_found = (result.find("successfully") >= 0)
 
     if (conn_found):
