@@ -16,11 +16,16 @@ def sanitize(cmd):
         ("wget -q -O - https://raw.githubusercontent.com/adstriegel/"
          "sigcap-buddy/main/pi-setup.sh | "),
         "")
-    if (";" in sanitized
-            or "|" in sanitized
-            or ">" in sanitized
-            or "<" in sanitized
-            or "&" in sanitized):
+    if (" ;" in sanitized
+            or " |" in sanitized
+            or " >" in sanitized
+            or " <" in sanitized
+            or " &" in sanitized
+            or "; " in sanitized
+            or "| " in sanitized
+            or "> " in sanitized
+            or "< " in sanitized
+            or "& " in sanitized):
         logging.error("Unaccepted symbols on command: %s", cmd)
         raise Exception("Symbols not allowed in cmd!")
 
