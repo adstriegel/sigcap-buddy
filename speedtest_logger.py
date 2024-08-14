@@ -458,6 +458,8 @@ def main():
                     set_interface_down("eth0", conn_status["eth"])
 
                 # Run idle ping
+                resolve_scan_obj = scan_wifi_async(
+                    config["wireless_interface"])
                 run_ping(
                     config["wireless_interface"],
                     extra={
@@ -465,6 +467,11 @@ def main():
                         "corr_test": "idle"},
                     ping_target=config["ping_target"],
                     ping_count=config["ping_count"])
+                resolve_scan_wifi_async(
+                    resolve_scan_obj,
+                    extra={
+                        "test_uuid": config["test_uuid"],
+                        "corr_test": "idle"})
 
                 # Disabled while FMNC is down
                 # run_fmnc()
