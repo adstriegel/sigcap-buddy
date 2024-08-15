@@ -9,7 +9,14 @@ sudo sed -i "s/#deb-src/deb-src/g" /etc/apt/sources.list
 sudo apt update && DEBIAN_FRONTEND=noninteractive sudo apt install build-essential git iperf3 python3 python3-pip python3-venv wireshark -y
 
 # Patch iwlist
-if [[ ! -d /home/$USER/wireless-tools-* ]]; then
+FOUND=
+for DIR in /home/$USER/wireless-tools-* ; do
+	if [ -d "$DIR" ] ; then
+		FOUND="$DIR"
+		break
+	fi
+done
+if [ ! -d "$FOUND" ] ; then
 	sudo apt source wireless-tools
 	cd wireless-tools-*
 	sudo sed -i "s/timeout = 15000000/timeout = 30000000/" iwlist.c
