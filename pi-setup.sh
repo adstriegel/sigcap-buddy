@@ -5,7 +5,19 @@ USER=`whoami`
 # 1. Install required apps, setup firebase venv
 echo "wireshark-common wireshark-common/install-setuid boolean true" | sudo debconf-set-selections
 echo "iperf3 iperf3/start_daemon boolean false" | sudo debconf-set-selections
-sudo apt update && DEBIAN_FRONTEND=noninteractive sudo apt install git iperf3 python3 python3-pip python3-venv wireshark -y
+sudo sed -i "s/#deb-src/deb-src/g" /etc/apt/sources.list
+sudo apt update && DEBIAN_FRONTEND=noninteractive sudo apt install build-essential git iperf3 python3 python3-pip python3-venv wireshark -y
+
+# Patch iwlist
+if [[ ! -d /home/$USER/wireless-tools-* ]]; then
+	sudo apt source wireless-tools
+	cd wireless-tools-*
+	sudo sed -i "s/timeout = 15000000/timeout = 30000000/" iwlist.c
+	sudo make && sudo make install
+	cd ~
+fi
+
+# Install venv
 if [ ! -d /home/$USER/venv_firebase ]; then
 	python -m venv /home/$USER/venv_firebase
 fi
