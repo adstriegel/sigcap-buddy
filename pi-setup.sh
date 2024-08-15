@@ -68,7 +68,7 @@ tar -xf /tmp/ookla-speedtest-1.2.0-linux-$(arch).tgz -C /home/$USER/sigcap-buddy
 /home/$USER/sigcap-buddy/speedtest --accept-license --progress=no
 
 # 5. Fetch firebase auth
-if [[ `tty` != "not a tty" ]]; then
+if [[ -t 1 ]]; then
 	if [ ! -f /home/$USER/sigcap-buddy/nd-schmidt-firebase-adminsdk-d1gei-43db929d8a.json ]; then
 		wget --user nsadmin --ask-password -P /home/$USER/sigcap-buddy http://ns-mn1.cse.nd.edu/firebase/nd-schmidt-firebase-adminsdk-d1gei-43db929d8a.json
 	fi
