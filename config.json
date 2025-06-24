@@ -4,6 +4,8 @@
     "wireless_interface": "wlan0",
     "speedtest_interval": 60,
     "upload_interval": 0,
+    "iperf_ping_enabled": true,
+    "ookla_enabled": true,
     "iperf_server": "ns-mn1.cse.nd.edu",
     "iperf_minport": 5201,
     "iperf_maxport": 5220,
