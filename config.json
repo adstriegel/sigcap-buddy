@@ -1,4 +1,5 @@
 {
+    "rpi_id": "",
     "monitor_interface": "",
     "wireless_interface": "wlan0",
     "speedtest_interval": 60,

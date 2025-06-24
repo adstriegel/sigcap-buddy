@@ -35,14 +35,16 @@ def read_config(mac):
             for key in val:
                 if (key != "mac" and val[key]):
                     config[key] = val[key]
+                elif (key == "rpi_id" and config[key] == ""):
+                    config[key] = mac
     except Exception as e:
         logging.error("Cannot connect db config: %s", e, exc_info=1)
 
     return config
 
 
-def push_heartbeat(mac):
-    hb_append_ref = db.reference("hb_append").child(mac)
+def push_heartbeat(rpi_id):
+    hb_append_ref = db.reference("hb_append").child(rpi_id)
     now = datetime.now()
     timestamp = datetime.timestamp(now) * 1000
     logging.info("Pushing heartbeat with timestamp %f", timestamp)
@@ -57,9 +59,9 @@ def push_heartbeat(mac):
             last_timestamp = found[key]["last_timestamp"]
             span = (timestamp - last_timestamp)
             if (span < 5400000):  # 90 minutes
-                logging.debug(("Updating key %s mac %s last_timestamp from "
+                logging.debug(("Updating key %s rpi_id %s last_timestamp from "
                                "%f to %f (span %.3f hour)"),
-                              key, mac, found[key]['last_timestamp'],
+                              key, rpi_id, found[key]['last_timestamp'],
                               timestamp, span / 3600000)
                 ref = hb_append_ref.child(key)
                 ref.update({
@@ -78,8 +80,8 @@ def push_heartbeat(mac):
         logging.error("Cannot connect db hb_append: %s", e, exc_info=1)
 
 
-def get_data_used(mac):
-    data_used_ref = db.reference("data_used").child(mac)
+def get_data_used(rpi_id):
+    data_used_ref = db.reference("data_used").child(rpi_id)
     try:
         found = data_used_ref.order_by_child(
             "last_timestamp").limit_to_last(1).get()
@@ -93,8 +95,8 @@ def get_data_used(mac):
         return 0
 
 
-def push_data_used(mac, data_used_gbytes):
-    data_used_ref = db.reference("data_used").child(mac)
+def push_data_used(rpi_id, data_used_gbytes):
+    data_used_ref = db.reference("data_used").child(rpi_id)
     now = datetime.now(timezone.utc).astimezone()
     logging.info("Pushing data used: %f GB", data_used_gbytes)
 
@@ -113,9 +115,9 @@ def push_data_used(mac, data_used_gbytes):
             timedelta_total = now - start_timestamp
             if (timedelta_total.days < 32
                     and now.day >= last_timestamp.day):
-                logging.debug(("Updating key %s mac %s last_timestamp %s "
+                logging.debug(("Updating key %s rpi_id %s last_timestamp %s "
                                "data used %.3f GB"),
-                              key, mac, now.isoformat(timespec="seconds"),
+                              key, rpi_id, now.isoformat(timespec="seconds"),
                               (curr_used + data_used_gbytes))
                 ref = data_used_ref.child(key)
                 ref.update({
@@ -137,17 +139,17 @@ def push_data_used(mac, data_used_gbytes):
         logging.error("Cannot connect db data_used: %s", e, exc_info=1)
 
 
-def get_wifi_conn(mac):
+def get_wifi_conn(rpi_id):
     logging.info("Getting Wi-Fi connection from Firebase.")
     wifi_ref = None
     try:
-        wifi_ref = db.reference("wifi").order_by_child("mac").equal_to(
-            mac.replace("-", ":")).get()
+        wifi_ref = db.reference("wifi_v2").order_by_child("rpi_id").equal_to(
+            rpi_id).get()
     except Exception as e:
-        logging.error("Cannot connect db wifi: %s", e, exc_info=1)
+        logging.error("Cannot connect db wifi_v2: %s", e, exc_info=1)
 
     if not wifi_ref:
-        logging.warning("Cannot find Wi-Fi info for %s", mac)
+        logging.warning("Cannot find Wi-Fi info for %s", rpi_id)
         return False
     else:
         wifi_ref_key = list(wifi_ref.keys())[0]
@@ -167,7 +169,7 @@ def get_mqtt_conn():
     try:
         mqtt_ref = db.reference("mqtt_temp").get()
     except Exception as e:
-        logging.error("Cannot connect db wifi: %s", e, exc_info=1)
+        logging.error("Cannot connect db mqtt_temp: %s", e, exc_info=1)
 
     if not mqtt_ref:
         logging.warning("Cannot find MQTT info.")
@@ -181,7 +183,7 @@ def get_mqtt_conn():
 
 def upload_directory(
     source_dir,
-    mac,
+    rpi_id,
     workers=8
 ):
     """Upload every file in a directory, including all files in subdirectories.
@@ -234,7 +236,7 @@ def upload_directory(
     # Start the upload.
     results = transfer_manager.upload_many_from_filenames(
         bucket, string_paths, source_directory=source_dir,
-        max_workers=workers, blob_name_prefix=f"{mac}/"
+        max_workers=workers, blob_name_prefix=f"{rpi_id}/"
     )
 
     for name, result in zip(string_paths, results):

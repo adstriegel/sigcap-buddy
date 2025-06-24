@@ -347,13 +347,17 @@ def resolve_run_ping_async(resolve_obj, extra):
 
 
 def main():
-    curr_usage_gbytes = firebase.get_data_used(mac)
-    logging.info("Got lastest usage data: %.3f GB", curr_usage_gbytes)
+    # Get config for RPI-ID
+    config = firebase.read_config(mac)
+    logging.info("Got RPI-ID: %s", config["rpi_id"])
+
+    curr_usage_gbytes = firebase.get_data_used(config["rpi_id"])
+    logging.info("Got latest usage data: %.3f GB", curr_usage_gbytes)
     logging.info("Upload previously recorded logs on startup.")
     temp_used = firebase.upload_directory(
         source_dir=logdir,
-        mac=mac)
-    firebase.push_data_used(mac, temp_used)
+        rpi_id=config["rpi_id"])
+    firebase.push_data_used(config["rpi_id"], temp_used)
     curr_usage_gbytes += temp_used
 
     while True:
@@ -364,7 +368,7 @@ def main():
         config["test_uuid"] = str(uuid4())
         logging.info("Config: %s", config)
         # WiFi connection
-        config["wifi_conn"] = firebase.get_wifi_conn(mac)
+        config["wifi_conn"] = firebase.get_wifi_conn(config["rpi_id"])
 
         # Ensure Ethernet and Wi-Fi are connected
         conn_status = setup_network(
@@ -374,7 +378,7 @@ def main():
         logging.info("Connection status: %s", conn_status)
 
         # Send heartbeat to indicate up status
-        firebase.push_heartbeat(mac)
+        firebase.push_heartbeat(config["rpi_id"])
 
         # If the Pi has turned on for more than 1 day, randomly pick a number
         # and check for the threshold. The default threshold is 0.25 since
@@ -557,8 +561,8 @@ def main():
             # TODO: Might run on a different interval in the future.
             this_session_usage += firebase.upload_directory(
                 source_dir=logdir,
-                mac=mac)
-            firebase.push_data_used(mac, this_session_usage)
+                rpi_id=config["rpi_id"])
+            firebase.push_data_used(config["rpi_id"], this_session_usage)
             curr_usage_gbytes += this_session_usage
 
         else:
@@ -571,7 +575,7 @@ def main():
             logging.info("Sleeping for 60s")
             interval -= 60
             time.sleep(60)
-            firebase.push_heartbeat(mac)
+            firebase.push_heartbeat(config["rpi_id"])
 
         # Avoid ValueError
         if (interval > 0):
