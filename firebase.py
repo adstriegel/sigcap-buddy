@@ -32,11 +32,12 @@ def read_config(mac):
         values = list(query.values())
         if (len(values) > 0):
             val = values[0]
+            logging.debug(val)
             for key in val:
-                if (key != "mac" and val[key]):
-                    config[key] = val[key]
-                elif (key == "rpi_id" and config[key] == ""):
+                if (key == "rpi_id" and val[key] == ""):
                     config[key] = mac
+                elif (key != "mac"):
+                    config[key] = val[key]
     except Exception as e:
         logging.error("Cannot connect db config: %s", e, exc_info=1)
 
