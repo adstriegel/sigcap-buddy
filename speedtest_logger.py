@@ -5,6 +5,7 @@ import json
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from logging import Formatter
+from pathlib import Path
 import ping
 from random import randint, uniform
 import time
@@ -360,6 +361,27 @@ def main():
     firebase.push_data_used(config["rpi_id"], temp_used)
     curr_usage_gbytes += temp_used
 
+    # Get previous sleep interval
+    interval_path = Path(".interval")
+    interval = 0
+    if interval_path.is_file():
+        with open(interval_path) as interval_file:
+            dt_line = interval_file.readline()
+            logging.debug("Got sleep interval target: %s", dt_line)
+            try:
+                dt_target = datetime.fromisoformat(dt_line)
+                dt_now = datetime.now(timezone.utc)
+                interval = (dt_target - dt_now).total_seconds()
+            except Exception as e:
+                logging.warning("Cannot parse interval file: %s", e)
+
+    if (interval > 0):
+        logging.info("Sleeping for {}s, waking up at {}".format(
+            interval,
+            (datetime.now(timezone.utc).astimezone() + timedelta(
+                0, interval)).isoformat()))
+        time.sleep(interval)
+
     while True:
         logging.info("Starting tests.")
         # Update config
@@ -583,10 +605,13 @@ def main():
 
         # Avoid ValueError
         if (interval > 0):
-            logging.info("Sleeping for {}s, waking up at {}".format(
-                interval,
-                (datetime.now(timezone.utc).astimezone() + timedelta(
-                    0, interval)).isoformat()))
+            dt_target = (datetime.now(timezone.utc).astimezone() + timedelta(
+                0, interval)).isoformat()
+            # Write sleep interval target to use if the process restarts
+            with open(".interval", "w") as interval_file:
+                interval_file.write(dt_target)
+            logging.info("Sleeping for %ds, waking up at %s",
+                         interval, dt_target)
             time.sleep(interval)
 
 
