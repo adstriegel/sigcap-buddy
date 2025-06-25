@@ -34,26 +34,34 @@ def run_cmd(cmd, logging_prefix="Running command", log_result=True,
             timeout_s=None, raw_out=False):
     sanitize(cmd)
     logging.info("%s: %s.", logging_prefix, cmd)
-    result = subprocess.run(
-        cmd,
-        timeout=timeout_s,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        shell=True)
-    if (raw_out):
-        return {
-            "returncode": result.returncode,
-            "stdout": result.stdout.decode("utf-8"),
-            "stderr": result.stderr.decode("utf-8")
-        }
-    elif (result.returncode == 0 or not result.stderr):
-        output = result.stdout.decode("utf-8")
-        if (log_result):
-            logging.debug(output)
-        return output
-    else:
-        logging.warning("%s error:\n%s", logging_prefix,
-                        result.stderr.decode("utf-8"))
+
+    try:
+        result = subprocess.run(
+            cmd,
+            timeout=timeout_s,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=True)
+        if (raw_out):
+            return {
+                "returncode": result.returncode,
+                "stdout": result.stdout.decode("utf-8"),
+                "stderr": result.stderr.decode("utf-8")
+            }
+        elif (result.returncode == 0 or not result.stderr):
+            output = result.stdout.decode("utf-8")
+            if (log_result):
+                logging.debug(output)
+            return output
+        else:
+            logging.warning("%s error:\n%s", logging_prefix,
+                            result.stderr.decode("utf-8"))
+            return ""
+    except subprocess.TimeoutExpired as e:
+        logging.warning("%s error: %s", logging_prefix, e)
+        return ""
+    except Exception as e:
+        logging.warning("%s error: %s", logging_prefix, e, exc_info=1)
         return ""
 
 
