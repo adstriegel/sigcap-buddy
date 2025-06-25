@@ -375,7 +375,17 @@ def main():
             except Exception as e:
                 logging.warning("Cannot parse interval file: %s", e)
 
+    # Continue sleep if interrupted due to process restart
     if (interval > 0):
+        # Send heartbeat before first sleep to indicate up status
+        firebase.push_heartbeat(config["rpi_id"])
+        # Run heartbeat every minute if uptime is < 60 minutes
+        while (time.clock_gettime(time.CLOCK_BOOTTIME) < 3600):
+            logging.info("Sleeping for 60s")
+            interval -= 60
+            time.sleep(60)
+            firebase.push_heartbeat(config["rpi_id"])
+        # Do sleep
         logging.info("Sleeping for {}s, waking up at {}".format(
             interval,
             (datetime.now(timezone.utc).astimezone() + timedelta(
