@@ -380,7 +380,8 @@ def main():
         # Send heartbeat before first sleep to indicate up status
         firebase.push_heartbeat(config["rpi_id"])
         # Run heartbeat every minute if uptime is < 60 minutes
-        while (time.clock_gettime(time.CLOCK_BOOTTIME) < 3600):
+        while (time.clock_gettime(time.CLOCK_BOOTTIME) < 3600
+               and interval > 60):
             logging.info("Sleeping for 60s")
             interval -= 60
             time.sleep(60)
@@ -607,7 +608,8 @@ def main():
         # Sleep for interval + random backoff
         interval = config["speedtest_interval"] * 60 + randint(0, 60)
         # Run heartbeat every minute if uptime is < 60 minutes
-        while (time.clock_gettime(time.CLOCK_BOOTTIME) < 3600):
+        while (time.clock_gettime(time.CLOCK_BOOTTIME) < 3600
+               and interval > 60):
             logging.info("Sleeping for 60s")
             interval -= 60
             time.sleep(60)
