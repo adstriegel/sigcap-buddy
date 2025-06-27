@@ -360,6 +360,7 @@ def main():
         rpi_id=config["rpi_id"])
     firebase.push_data_used(config["rpi_id"], temp_used)
     curr_usage_gbytes += temp_used
+    last_upload_time = datetime.now(timezone.utc).astimezone()
 
     # Get previous sleep interval
     interval_path = Path(".interval")
@@ -615,10 +616,16 @@ def main():
                             "corr_test": "none"})
 
             # Upload
-            # TODO: Might run on a different interval in the future.
-            this_session_usage += firebase.upload_directory(
-                source_dir=logdir,
-                rpi_id=config["rpi_id"])
+            curr_time = datetime.now(timezone.utc).astimezone()
+            count_minutes = (curr_time - last_upload_time).total_seconds() / 60
+            if (count_minutes > config["upload_interval"]):
+                this_session_usage += firebase.upload_directory(
+                    source_dir=logdir,
+                    rpi_id=config["rpi_id"])
+                last_upload_time = curr_time
+            else:
+                logging.info("Skipping upload, there is %d minutes from last "
+                             "upload time.", int(count_minutes))
             firebase.push_data_used(config["rpi_id"], this_session_usage)
             curr_usage_gbytes += this_session_usage
 
