@@ -14,7 +14,8 @@
     "ping_count": 5,
     "timeout_s": 120,
     "data_cap_gbytes": 100,
-    "sampling_threshold": 0.25,
+    "sampling_threshold": 1,
+    "active_tests_sampling_threshold": 0.25,
     "broker_addr": "ns-mn1.cse.nd.edu",
     "broker_port": 1883,
     "publish_interval": 600

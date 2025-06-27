@@ -420,8 +420,14 @@ def main():
                 or uniform(0, 1) < config["sampling_threshold"]):
             this_session_usage = 0
 
-            # Start tests over ethernet
-            if (conn_status["eth"]):
+            # Whether to run throuhgput & ping tests
+            enable_active_tests = (uniform(0, 1)
+                < config["active_tests_sampling_threshold"])
+            logging.info("Is active tests enabled? %s", enable_active_tests)
+
+            # Skips ethernet test if active tests are disabled since
+            # there are only active tests conducted over ethernet
+            if (conn_status["eth"] and enable_active_tests):
                 logging.info("Starting tests over eth0.")
                 if (conn_status["wifi"]):
                     set_interface_down(config["wireless_interface"],
@@ -490,8 +496,9 @@ def main():
                     set_interface_up(config["wireless_interface"],
                                      conn_status["wifi"])
 
-            # Start tests over Wi-Fi
-            if (conn_status["wifi"]):
+            # Skips Wi-Fi tests if active tests are disabled but
+            # only do one Wi-Fi scan
+            if (conn_status["wifi"] and enable_active_tests):
                 logging.info("Starting tests over Wi-Fi.")
                 if (conn_status["eth"]):
                     set_interface_down("eth0", conn_status["eth"])
@@ -588,11 +595,24 @@ def main():
                 if (conn_status["eth"]):
                     set_interface_up("eth0", conn_status["eth"])
             else:
-                scan_wifi(
-                    config["wireless_interface"],
-                    extra={
-                        "test_uuid": config["test_uuid"],
-                        "corr_test": "none"})
+                if (conn_status["wifi"]):
+                    # Run asynchronous Wi-Fi scan which includes link
+                    resolve_scan_obj = scan_wifi_async(
+                        config["wireless_interface"])
+                    time.sleep(5)
+                    # Resolve asynchronous Wi-Fi scan
+                    resolve_scan_wifi_async(
+                        resolve_scan_obj,
+                        extra={
+                            "test_uuid": config["test_uuid"],
+                            "corr_test": "none"})
+                else:
+                    # Run Wi-Fi beacon scan only
+                    scan_wifi(
+                        config["wireless_interface"],
+                        extra={
+                            "test_uuid": config["test_uuid"],
+                            "corr_test": "none"})
 
             # Upload
             # TODO: Might run on a different interval in the future.
