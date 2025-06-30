@@ -524,6 +524,9 @@ def main():
                     # Disabled while FMNC is down
                     # run_fmnc()
 
+                    # Keep track of last test for last Wi-Fi scan
+                    last_test = "idle"
+
                     if ((curr_usage_gbytes + this_session_usage)
                             < config["data_cap_gbytes"]):
                         # iperf downlink
@@ -550,6 +553,7 @@ def main():
                             extra={
                                 "test_uuid": config["test_uuid"],
                                 "corr_test": "iperf-dl"})
+                        last_test = "iperf-dl"
 
                     if ((curr_usage_gbytes + this_session_usage)
                             < config["data_cap_gbytes"]):
@@ -577,6 +581,7 @@ def main():
                             extra={
                                 "test_uuid": config["test_uuid"],
                                 "corr_test": "iperf-ul"})
+                        last_test = "iperf-ul"
 
                 if (config["ookla_enabled"]):
                     if ((curr_usage_gbytes + this_session_usage)
@@ -592,6 +597,19 @@ def main():
                             extra={
                                 "test_uuid": config["test_uuid"],
                                 "corr_test": "speedtest"})
+                        last_test = "speedtest"
+
+                # Run last asynchronous Wi-Fi scan to capture beacon and
+                # link at the end of the test
+                resolve_scan_obj = scan_wifi_async(
+                    config["wireless_interface"])
+                time.sleep(5)
+                # Resolve asynchronous Wi-Fi scan
+                resolve_scan_wifi_async(
+                    resolve_scan_obj,
+                    extra={
+                        "test_uuid": config["test_uuid"],
+                        "corr_test": f"end-{last_test}"})
 
                 if (conn_status["eth"]):
                     set_interface_up("eth0", conn_status["eth"])
