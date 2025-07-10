@@ -69,20 +69,20 @@ def set_interface_up(iface, conn=False):
                               retry_count)
 
 
-def enable_monitor(iface):
+def enable_monitor(iface, conn=False):
     logging.info("Enabling interface %s as monitor.", iface)
     is_monitor = "monitor" in (
         utils.run_cmd("sudo iw dev {} info".format(iface),
                       "Checking iface {} info".format(iface)))
     logging.info("{} is monitor? {}".format(iface, is_monitor))
     if (not is_monitor):
-        set_interface_down(iface)
+        set_interface_down(iface, conn)
         utils.run_cmd("sudo iw dev {} set type monitor".format(iface),
                       "Set interface {} as monitor".format(iface))
     set_interface_up(iface)
 
 
-def disable_monitor(iface):
+def disable_monitor(iface, conn=False):
     logging.info("Disabling interface %s as monitor.", iface)
     is_monitor = "monitor" in (
         utils.run_cmd("sudo iw dev {} info".format(iface),
@@ -92,18 +92,16 @@ def disable_monitor(iface):
         set_interface_down(iface)
         utils.run_cmd("sudo iw dev {} set type managed".format(iface),
                       "Set interface {} as managed".format(iface))
-    set_interface_up(iface)
+    set_interface_up(iface, conn)
 
 
-def setup_network(wifi_conn, wireless_iface, monitor_iface):
+def setup_network(wifi_conn, wireless_iface):
     logging.info("Setting up network.")
 
     # Set all interface link up, just in case
     set_interface_up("eth0")
     set_interface_up(wireless_iface)
     disable_monitor(wireless_iface)
-    if (monitor_iface and wireless_iface != monitor_iface):
-        enable_monitor(monitor_iface)
 
     # Check available eth and wlan connection in nmcli
     conn_found = False
@@ -407,8 +405,7 @@ def main():
         # Ensure Ethernet and Wi-Fi are connected
         conn_status = setup_network(
             config["wifi_conn"],
-            config["wireless_interface"],
-            config["monitor_interface"])
+            config["wireless_interface"])
         logging.info("Connection status: %s", conn_status)
 
         # Send heartbeat to indicate up status
