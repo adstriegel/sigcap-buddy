@@ -59,10 +59,24 @@ def run_cmd(cmd, logging_prefix="Running command", log_result=True,
             return ""
     except subprocess.TimeoutExpired as e:
         logging.warning("%s error: %s", logging_prefix, e)
-        return ""
+        if (raw_out):
+            return {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": str(e)
+            }
+        else:
+            return ""
     except Exception as e:
         logging.warning("%s error: %s", logging_prefix, e, exc_info=1)
-        return ""
+        if (raw_out):
+            return {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": str(e)
+            }
+        else:
+            return ""
 
 
 def run_cmd_async(cmd, logging_prefix="Running async command"):
@@ -78,7 +92,8 @@ def run_cmd_async(cmd, logging_prefix="Running async command"):
 
 
 def resolve_cmd_async(proc, logging_prefix="Resolving async command",
-                      log_result=True, timeout_s=None, kill=False):
+                      log_result=True, timeout_s=None, kill=False,
+                      raw_out=False):
     logging.info("%s.", logging_prefix)
     try:
         if kill:
@@ -86,7 +101,13 @@ def resolve_cmd_async(proc, logging_prefix="Resolving async command",
             logging.debug("Process terminated.")
 
         out, err = proc.communicate(timeout=timeout_s)
-        if (proc.returncode == 0 or (kill and not err)):
+        if (raw_out):
+            return {
+                "returncode": proc.returncode,
+                "stdout": out.decode("utf-8"),
+                "stderr": err.decode("utf-8")
+            }
+        elif (proc.returncode == 0 or (kill and not err)):
             result = out.decode("utf-8")
             if (log_result):
                 logging.debug(result)
@@ -100,7 +121,21 @@ def resolve_cmd_async(proc, logging_prefix="Resolving async command",
         out, err = proc.communicate()
         logging.warning("%s error:\n%s", logging_prefix,
                         err.decode("utf-8"))
-        return ""
+        if (raw_out):
+            return {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": str(e)
+            }
+        else:
+            return ""
     except Exception as e:
         logging.warning("%s error: %s", logging_prefix, e, exc_info=1)
-        return ""
+        if (raw_out):
+            return {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": str(e)
+            }
+        else:
+            return ""
