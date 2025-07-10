@@ -11,6 +11,7 @@ from random import randint, uniform
 import time
 import utils
 from uuid import uuid4
+import wifi_monitor
 import wifi_scan
 
 logdir = "/home/{}/sigcap-buddy/logs".format(getuser())
@@ -629,6 +630,19 @@ def main():
                         extra={
                             "test_uuid": config["test_uuid"],
                             "corr_test": "none"})
+
+            # run monitor mode if set up
+            if (config["monitor_interface"]):
+                enable_monitor(
+                    config["monitor_interface"],
+                    conn_status["wifi"])
+                wifi_monitor.monitor(
+                    config["monitor_interface"],
+                    config["monitor_duration"],
+                    config["monitor_size"])
+                disable_monitor(
+                    config["monitor_interface"],
+                    conn_status["wifi"])
 
             # Upload
             curr_time = datetime.now(timezone.utc).astimezone()

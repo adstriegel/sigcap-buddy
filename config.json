@@ -12,6 +12,8 @@
     "iperf_duration": 5,
     "ping_target": "ns-mn1.cse.nd.edu",
     "ping_count": 5,
+    "monitor_duration": 5,
+    "monitor_size": 765,
     "timeout_s": 120,
     "data_cap_gbytes": 100,
     "sampling_threshold": 1,
