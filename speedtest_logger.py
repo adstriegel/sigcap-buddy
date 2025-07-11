@@ -274,6 +274,7 @@ def scan_wifi(iface, extra):
                 "interface": iface,
                 "extra": extra,
                 "beacons": results}))
+    return results
 
 
 def scan_wifi_async(iface, link_wait=1):
@@ -302,6 +303,7 @@ def resolve_scan_wifi_async(resolve_obj, extra):
                 "extra": extra,
                 "beacons": results,
                 "links": results_link}))
+    return results
 
 
 def run_ping(iface, extra, ping_target, ping_count):
@@ -418,6 +420,7 @@ def main():
         if (time.clock_gettime(time.CLOCK_BOOTTIME) < 86400
                 or uniform(0, 1) < config["sampling_threshold"]):
             this_session_usage = 0
+            last_wifi_scan_results = list()
 
             # Whether to run throuhgput & ping tests
             enable_active_tests = (uniform(0, 1)
@@ -513,7 +516,7 @@ def main():
                             "corr_test": "idle"},
                         ping_target=config["ping_target"],
                         ping_count=config["ping_count"])
-                    resolve_scan_wifi_async(
+                    last_wifi_scan_results = resolve_scan_wifi_async(
                         resolve_scan_obj,
                         extra={
                             "test_uuid": config["test_uuid"],
@@ -546,7 +549,7 @@ def main():
                             extra={
                                 "test_uuid": config["test_uuid"],
                                 "corr_test": "iperf-dl"})
-                        resolve_scan_wifi_async(
+                        last_wifi_scan_results = resolve_scan_wifi_async(
                             resolve_scan_obj,
                             extra={
                                 "test_uuid": config["test_uuid"],
@@ -574,7 +577,7 @@ def main():
                             extra={
                                 "test_uuid": config["test_uuid"],
                                 "corr_test": "iperf-ul"})
-                        resolve_scan_wifi_async(
+                        last_wifi_scan_results = resolve_scan_wifi_async(
                             resolve_scan_obj,
                             extra={
                                 "test_uuid": config["test_uuid"],
@@ -590,7 +593,7 @@ def main():
                         this_session_usage += run_speedtest(
                             test_uuid=config["test_uuid"],
                             timeout_s=config["timeout_s"])
-                        resolve_scan_wifi_async(
+                        last_wifi_scan_results = resolve_scan_wifi_async(
                             resolve_scan_obj,
                             extra={
                                 "test_uuid": config["test_uuid"],
@@ -603,7 +606,7 @@ def main():
                     config["wireless_interface"])
                 time.sleep(5)
                 # Resolve asynchronous Wi-Fi scan
-                resolve_scan_wifi_async(
+                last_wifi_scan_results = resolve_scan_wifi_async(
                     resolve_scan_obj,
                     extra={
                         "test_uuid": config["test_uuid"],
@@ -618,14 +621,14 @@ def main():
                         config["wireless_interface"])
                     time.sleep(5)
                     # Resolve asynchronous Wi-Fi scan
-                    resolve_scan_wifi_async(
+                    last_wifi_scan_results = resolve_scan_wifi_async(
                         resolve_scan_obj,
                         extra={
                             "test_uuid": config["test_uuid"],
                             "corr_test": "none"})
                 else:
                     # Run Wi-Fi beacon scan only
-                    scan_wifi(
+                    last_wifi_scan_results = scan_wifi(
                         config["wireless_interface"],
                         extra={
                             "test_uuid": config["test_uuid"],
@@ -639,7 +642,9 @@ def main():
                 wifi_monitor.monitor(
                     config["monitor_interface"],
                     config["monitor_duration"],
-                    config["monitor_size"])
+                    config["monitor_size"],
+                    config["monitor_mode"],
+                    last_wifi_scan_results)
                 disable_monitor(
                     config["monitor_interface"],
                     conn_status["wifi"])

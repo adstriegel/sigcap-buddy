@@ -47,20 +47,40 @@ channel_list = [
 ]
 
 
-def monitor(monitor_iface, duration, packet_size=765, mode='all'):
+def freq_str_to_mhz(freq_str):
+    number, unit = freq_str.split(' ')
+    if (unit.lower() == 'ghz'):
+        return int(float(number) * 1e3)
+    elif (unit.lower() == 'mhz'):
+        return int(float(number))
+    elif (unit.lower() == 'khz'):
+        return int(float(number) / 1e3)
+    elif (unit.lower() == 'hz'):
+        return int(float(number) / 1e6)
+    else:
+        logging.warning(f"Unknown unit {unit} !")
+        return 0
+
+
+def monitor(monitor_iface, duration, packet_size=765, mode='all',
+            last_scan=None):
     # Determine target channels
     target_chs = list()
     if (mode == 'all'):
         target_chs = channel_list
     elif (mode == '5ghz' or mode == '6ghz'):
         target_chs = [ch for ch in channel_list if ch['freq_label'] == mode]
-    elif (mode == 'target'):
-        # TODO
-        pass
+    elif (mode == 'scan' and type(last_scan) == list and len(last_scan) > 0):
+        freq_list = list(set(
+            [freq_str_to_mhz(beacon['freq']) for beacon in last_scan]))
+        target_chs = [ch for ch in channel_list
+                      if ch['primary_center_freq'] in freq_list]
     else:
-        logging.error('Monitor mode %s not allowed !')
+        logging.error(f"Unknown monitor mode {mode} !")
     
+    logging.info(f"Capturing {len(target_chs)} channels !")
     if (len(target_chs) > 0):
+        logging.debug(target_chs)
         capture_files = list()
         for ch in target_chs:
             result = utils.run_cmd(
