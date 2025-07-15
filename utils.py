@@ -11,6 +11,34 @@ def hex_to_bssid(input_string):
     return ":".join(input_string[i:i+2] for i in range(0, input_len, 2)).upper()
 
 
+def freq_str_to_mhz(freq_str):
+    number, unit = freq_str.split(' ')
+    if (unit.lower() == 'ghz'):
+        return int(float(number) * 1e3)
+    elif (unit.lower() == 'mhz'):
+        return int(float(number))
+    elif (unit.lower() == 'khz'):
+        return int(float(number) / 1e3)
+    elif (unit.lower() == 'hz'):
+        return int(float(number) / 1e6)
+    else:
+        logging.warning(f"Unknown unit {unit} !")
+        return 0
+
+
+def freq_str_cmp(freq_str, cmp_str):
+    freq = freq_str_to_mhz(freq_str)
+    if (cmp_str == "2.4ghz"):
+        return freq < 2500
+    elif (cmp_str == "5ghz"):
+        return freq > 5160 and freq < 5925
+    elif (cmp_str == "6ghz"):
+        return freq > 5925
+    else:
+        logging.warning(f"Unknown comparison string {cmp_str} !")
+        return False
+
+
 def sanitize(cmd):
     # Sanitize command, only allow certain symbols if it's in "sleep 1;"
     # TODO: also replace "sleep n;"

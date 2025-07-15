@@ -58,21 +58,6 @@ channel_list = [
 ]
 
 
-def freq_str_to_mhz(freq_str):
-    number, unit = freq_str.split(' ')
-    if (unit.lower() == 'ghz'):
-        return int(float(number) * 1e3)
-    elif (unit.lower() == 'mhz'):
-        return int(float(number))
-    elif (unit.lower() == 'khz'):
-        return int(float(number) / 1e3)
-    elif (unit.lower() == 'hz'):
-        return int(float(number) / 1e6)
-    else:
-        logging.warning(f"Unknown unit {unit} !")
-        return 0
-
-
 def monitor(monitor_iface, duration, packet_size=765, mode='all',
             last_scan=None):
     # Determine target channels
@@ -83,7 +68,7 @@ def monitor(monitor_iface, duration, packet_size=765, mode='all',
         target_chs = [ch for ch in channel_list if ch['freq_label'] == mode]
     elif (mode == 'scan' and type(last_scan) == list and len(last_scan) > 0):
         freq_list = list(set(
-            [freq_str_to_mhz(beacon['freq']) for beacon in last_scan]))
+            [utils.freq_str_to_mhz(beacon['freq']) for beacon in last_scan]))
         target_chs = [ch for ch in channel_list
                       if ch['primary_center_freq'] in freq_list]
     else:

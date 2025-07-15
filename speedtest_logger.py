@@ -96,7 +96,7 @@ def disable_monitor(iface, conn=False):
     set_interface_up(iface, conn)
 
 
-def setup_network(wifi_conn, wireless_iface):
+def setup_network(wifi_conn, wireless_iface, wireless_mode, wireless_bssid):
     logging.info("Setting up network.")
 
     # Set all interface link up, just in case
@@ -134,7 +134,7 @@ def setup_network(wifi_conn, wireless_iface):
         conn_found = (result.find("successfully") >= 0)
 
     if (conn_found):
-        # Check if connection need editing.
+        # Check if the interface is correct
         conn_iface = utils.run_cmd(
             ("sudo nmcli --fields connection.interface-name connection "
              "show '{}'").format(wifi_conn["ssid"]),
@@ -142,19 +142,45 @@ def setup_network(wifi_conn, wireless_iface):
         edit_iface = wireless_iface not in conn_iface
         logging.debug("Edit connection %s interface? %s",
                       wifi_conn["ssid"], edit_iface)
-        edit_bssid = False
-        if ("bssid" in wifi_conn):
-            conn_iface = utils.run_cmd(
-                ("sudo nmcli --fields 802-11-wireless.bssid connection "
-                 "show '{}'").format(wifi_conn["ssid"]),
-                "Check connection {} interface".format(wifi_conn["ssid"]))
-            if (wifi_conn["bssid"] == ""):
-                edit_bssid = "--" not in conn_iface
-            else:
-                edit_bssid = wifi_conn["bssid"] not in conn_iface
-            logging.debug("Edit connection %s BSSID? %s",
-                          wifi_conn["ssid"], edit_bssid)
 
+        # Check if BSSID needs to be specified
+        edit_bssid = False
+        target_bssid = ""
+        logging.debug(f"Setting BSSID for mode {wireless_mode}.")
+        if (wireless_mode == "bssid"):
+            target_bssid = wireless_bssid
+        elif (wireless_mode != "auto"):
+            # Must be either 2.4ghz, 5ghz, or 6ghz
+            logging.info(f"Scanning on {wireless_iface} ...")
+            results = list(filter(
+                lambda x: ((x["ssid"] == wifi_conn["ssid"])
+                           and utils.freq_str_cmp(x["freq"], wireless_mode)),
+                wifi_scan.scan(wireless_iface)))
+            if (len(results) > 0):
+                results = sorted(
+                    results,
+                    key=lambda x: float(x["rssi"].split()[0]),
+                    reverse=True)
+                target_bssid = results[0]["bssid"]
+            else:
+                logging.info(f"No matching Wi-Fi candidate found !")
+        else:
+            # Must be auto
+            pass
+        logging.info(f"Got target BSSID={target_bssid}.")
+
+        conn_iface = utils.run_cmd(
+            ("sudo nmcli --fields 802-11-wireless.bssid connection "
+             "show '{}'").format(wifi_conn["ssid"]),
+            "Check connection {} interface".format(wifi_conn["ssid"]))
+        if (target_bssid == ""):
+            edit_bssid = "--" not in conn_iface
+        else:
+            edit_bssid = target_bssid not in conn_iface
+        logging.debug("Edit connection %s BSSID? %s",
+                      wifi_conn["ssid"], edit_bssid)
+
+        # Proceed if connection need editing.
         if (edit_bssid or edit_iface):
             # Put new connection down temporarily for editing
             utils.run_cmd(("sudo nmcli connection "
@@ -174,9 +200,9 @@ def setup_network(wifi_conn, wireless_iface):
                 utils.run_cmd(
                     ("sudo nmcli connection modify '{}' "
                      "802-11-wireless.bssid '{}'").format(
-                        wifi_conn["ssid"], wifi_conn["bssid"]),
+                        wifi_conn["ssid"], target_bssid),
                     "Setting connection '{}' BSSID to '{}'".format(
-                        wifi_conn["ssid"], wifi_conn["bssid"]))
+                        wifi_conn["ssid"], target_bssid))
 
         # Activate connection, should run whether the connection is up or down
         utils.run_cmd(("sudo nmcli connection "
@@ -408,7 +434,9 @@ def main():
         # Ensure Ethernet and Wi-Fi are connected
         conn_status = setup_network(
             config["wifi_conn"],
-            config["wireless_interface"])
+            config["wireless_interface"],
+            config["wireless_mode"],
+            config["wireless_bssid"])
         logging.info("Connection status: %s", conn_status)
 
         # Send heartbeat to indicate up status
