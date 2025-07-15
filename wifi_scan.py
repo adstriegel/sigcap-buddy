@@ -302,6 +302,217 @@ def read_beacon_ie(ie_hex_string):
         case 255:
             output["elements"]["ext_id"] = byte_data[2]
             match output["elements"]["ext_id"]:
+                case 35:
+                    # HE Capabilities
+                    output["type"] = "HE Capabilities"
+
+                    he_mac_info = byte_data[3:9]
+                    output["elements"]["+htc_he_support"] = (
+                        (he_mac_info[0]) & 0x01)
+                    output["elements"]["twt_requester_support"] = (
+                        (he_mac_info[0] >> 1) & 0x01)
+                    output["elements"]["twt_responder_support"] = (
+                        (he_mac_info[0] >> 2) & 0x01)
+                    output["elements"]["dynamic_fragmentation_support"] = (
+                        (he_mac_info[0] >> 3) & 0x03)
+                    output["elements"]["trigger_frame_mac_padding_duration"] = (
+                        (he_mac_info[1] >> 2) & 0x03)
+                    output["elements"]["multi_tid_aggregation_rx_support"] = (
+                        (he_mac_info[1] >> 4) & 0x07)
+                    output["elements"]["he_link_adaptation_support"] = (
+                        ((he_mac_info[1] >> 7) & 0x01)
+                        + ((he_mac_info[2] & 0x01) << 1))
+                    output["elements"]["all_ack_support"] = (
+                        (he_mac_info[2] >> 1) & 0x01)
+                    output["elements"]["trs_support"] = (
+                        (he_mac_info[2] >> 2) & 0x01)
+                    output["elements"]["bsr_support"] = (
+                        (he_mac_info[2] >> 3) & 0x01)
+                    output["elements"]["broadcast_twt_support"] = (
+                        (he_mac_info[2] >> 4) & 0x01)
+                    output["elements"]["32_bit_ba_bitmap_support"] = (
+                        (he_mac_info[2] >> 5) & 0x01)
+                    output["elements"]["mu_cascading_support"] = (
+                        (he_mac_info[2] >> 6) & 0x01)
+                    output["elements"]["ack_enabled_aggregation_support"] = (
+                        (he_mac_info[2] >> 7) & 0x01)
+                    output["elements"]["om_control_support"] = (
+                        (he_mac_info[3] >> 1) & 0x01)
+                    output["elements"]["ofdma_ra_support"] = (
+                        (he_mac_info[3] >> 2) & 0x01)
+                    output["elements"]["maximum_a_mpdu_length_exponent_extension"] = (
+                        (he_mac_info[3] >> 3) & 0x03)
+                    output["elements"]["flexible_twt_schedule_support"] = (
+                        (he_mac_info[3] >> 6) & 0x01)
+                    output["elements"]["rx_control_frame_to_multibss"] = (
+                        (he_mac_info[3] >> 7) & 0x01)
+                    output["elements"]["bsrp_bqrp_a_mpdu_aggregation"] = (
+                        (he_mac_info[4]) & 0x01)
+                    output["elements"]["qtp_support"] = (
+                        (he_mac_info[4] >> 1) & 0x01)
+                    output["elements"]["bqr_support"] = (
+                        (he_mac_info[4] >> 2) & 0x01)
+                    output["elements"]["psr_responder"] = (
+                        (he_mac_info[4] >> 3) & 0x01)
+                    output["elements"]["ndp_feedback_report_support"] = (
+                        (he_mac_info[4] >> 4) & 0x01)
+                    output["elements"]["ops_support"] = (
+                        (he_mac_info[4] >> 5) & 0x01)
+                    output["elements"]["a_msdu_not_under_ba_in_ack_enabled_a_mpdu_support"] = (
+                        (he_mac_info[4] >> 6) & 0x01)
+                    output["elements"]["multi_tid_aggregation_tx_support"] = (
+                        ((he_mac_info[4] >> 7) & 0x01)
+                        + ((he_mac_info[5] & 0x03) << 1))
+                    output["elements"]["he_subchannel_selective_transmission_support"] = (
+                        (he_mac_info[5] >> 2) & 0x01)
+                    output["elements"]["ul_2x996_tone_ru_support"] = (
+                        (he_mac_info[5] >> 3) & 0x01)
+                    output["elements"]["om_control_ul_mu_data_disable_rx_support"] = (
+                        (he_mac_info[5] >> 4) & 0x01)
+                    output["elements"]["he_dynamic_sm_power_save"] = (
+                        (he_mac_info[5] >> 5) & 0x01)
+                    output["elements"]["punctured_sounding_support"] = (
+                        (he_mac_info[5] >> 6) & 0x01)
+                    output["elements"]["ht_and_vht_trigger_frame_rx_support"] = (
+                        (he_mac_info[5] >> 7) & 0x01)
+
+                    he_phy_info = byte_data[9:20]
+                    output["elements"]["channel_width_set"] = (
+                        (he_phy_info[0] >> 1) & 0x7F)
+                    output["elements"]["punctured_preamble_rx"] = (
+                        (he_phy_info[1]) & 0x0F)
+                    output["elements"]["device_class"] = (
+                        (he_phy_info[1] >> 4) & 0x01)
+                    output["elements"]["ldpc_coding_in_payload"] = (
+                        (he_phy_info[1] >> 5) & 0x01)
+                    output["elements"]["he_su_ppdu_with_1x_he_ltf_and_0.8us_gi"] = (
+                        (he_phy_info[1] >> 6) & 0x01)
+                    output["elements"]["midamble_tx_rx_max_nsts"] = (
+                        ((he_phy_info[1] >> 7) & 0x01)
+                        + ((he_phy_info[2] & 0x01) << 1))
+                    output["elements"]["ndp_with_4x_he_ltf_and_3.2us_gi"] = (
+                        (he_phy_info[2] >> 1) & 0x01)
+                    output["elements"]["stbc_tx_<=_80mhz"] = (
+                        (he_phy_info[2] >> 2) & 0x01)
+                    output["elements"]["stbc_rx_<=_80mhz"] = (
+                        (he_phy_info[2] >> 3) & 0x01)
+                    output["elements"]["doppler_tx"] = (
+                        (he_phy_info[2] >> 4) & 0x01)
+                    output["elements"]["doppler_rx"] = (
+                        (he_phy_info[2] >> 5) & 0x01)
+                    output["elements"]["full_bandwidth_ul_mu_mimo"] = (
+                        (he_phy_info[2] >> 6) & 0x01)
+                    output["elements"]["partial_bandwidth_ul_mu_mimo"] = (
+                        (he_phy_info[2] >> 7) & 0x01)
+
+                    output["elements"]["dcm_max_constellation_tx"] = (
+                        (he_phy_info[3]) & 0x03)
+                    output["elements"]["dcm_max_nss_tx"] = (
+                        (he_phy_info[3] >> 2) & 0x01)
+                    output["elements"]["dcm_max_constellation_rx"] = (
+                        (he_phy_info[3] >> 3) & 0x03)
+                    output["elements"]["dcm_max_nss_rx"] = (
+                        (he_phy_info[3] >> 5) & 0x01)
+                    output["elements"]["rx_partial_bw_su_in_20mhz_he_mu_ppdu"] = (
+                        (he_phy_info[3] >> 6) & 0x01)
+                    output["elements"]["su_beamformer"] = (
+                        (he_phy_info[3] >> 7) & 0x01)
+
+                    output["elements"]["su_beamformee"] = (
+                        (he_phy_info[4]) & 0x01)
+                    output["elements"]["mu_beamformer"] = (
+                        (he_phy_info[4] >> 1) & 0x01)
+                    output["elements"]["beamformee_sts_<=_80mhz"] = (
+                        (he_phy_info[4] >> 2) & 0x07)
+                    output["elements"]["beamformee_sts_>_80mhz"] = (
+                        (he_phy_info[4] >> 5) & 0x07)
+
+                    output["elements"]["number_of_sounding_dimensions_<=_80mhz"] = (
+                        (he_phy_info[5]) & 0x07)
+                    output["elements"]["number_of_sounding_dimensions_>_80mhz"] = (
+                        (he_phy_info[5] >> 3) & 0x07)
+                    output["elements"]["ng_=_16_su_feedback"] = (
+                        (he_phy_info[5] >> 6) & 0x01)
+                    output["elements"]["ng_=_16_mu_feedback"] = (
+                        (he_phy_info[5] >> 7) & 0x01)
+
+                    output["elements"]["codebook_size_su_feedback"] = (
+                        (he_phy_info[6]) & 0x01)
+                    output["elements"]["codebook_size_mu_feedback"] = (
+                        (he_phy_info[6] >> 1) & 0x01)
+                    output["elements"]["triggered_su_beamforming_feedback"] = (
+                        (he_phy_info[6] >> 2) & 0x01)
+                    output["elements"]["triggered_mu_beamforming_feedback"] = (
+                        (he_phy_info[6] >> 3) & 0x01)
+                    output["elements"]["triggered_cqi_feedback"] = (
+                        (he_phy_info[6] >> 4) & 0x01)
+                    output["elements"]["partial_bandwidth_extended_range"] = (
+                        (he_phy_info[6] >> 5) & 0x01)
+                    output["elements"]["partial_bandwidth_dl_mu_mimo"] = (
+                        (he_phy_info[6] >> 6) & 0x01)
+                    output["elements"]["ppe_thresholds_present"] = (
+                        (he_phy_info[6] >> 7) & 0x01)
+
+                    output["elements"]["psr_based_sr_support"] = (
+                        (he_phy_info[7]) & 0x01)
+                    output["elements"]["power_boost_factor_ar_support"] = (
+                        (he_phy_info[7] >> 1) & 0x01)
+                    output["elements"]["he_su_ppdu_and_he_mu_ppdu_with_4x_he_ltf_and_0.8us_gi"] = (
+                        (he_phy_info[7] >> 2) & 0x01)
+                    output["elements"]["max_nc"] = (
+                        (he_phy_info[7] >> 3) & 0x07)
+                    output["elements"]["stbc_tx_>_80mhz"] = (
+                        (he_phy_info[7] >> 6) & 0x01)
+                    output["elements"]["stbc_rx_>_80mhz"] = (
+                        (he_phy_info[7] >> 7) & 0x01)
+
+                    output["elements"]["he_er_su_ppdu_with_4x_he_ltf_and_0.8us_gi"] = (
+                        (he_phy_info[8]) & 0x01)
+                    output["elements"]["20mhz_in_40mhz_he_ppdu_in_2.4ghz_band"] = (
+                        (he_phy_info[8] >> 1) & 0x01)
+                    output["elements"]["20mhz_in_160_80+80mhz_he_ppdu"] = (
+                        (he_phy_info[8] >> 2) & 0x01)
+                    output["elements"]["80mhz_in_160_80+80mhz_he_ppdu"] = (
+                        (he_phy_info[8] >> 3) & 0x01)
+                    output["elements"]["he_er_su_ppdu_with_1x_he_ltf_and_0.8us_gi"] = (
+                        (he_phy_info[8] >> 4) & 0x01)
+                    output["elements"]["midamble_tx_rx_2x_and_1x_he_ltf"] = (
+                        (he_phy_info[8] >> 5) & 0x01)
+                    output["elements"]["dcm_max_ru"] = (
+                        (he_phy_info[8] >> 6) & 0x03)
+
+                    output["elements"]["longer_than_16_he_sig_b_ofdm_symbols_support"] = (
+                        (he_phy_info[9]) & 0x01)
+                    output["elements"]["non_triggered_cqi_feedback"] = (
+                        (he_phy_info[9] >> 1) & 0x01)
+                    output["elements"]["tx_1024_qam_support_<_242_tone_ru_support"] = (
+                        (he_phy_info[9] >> 2) & 0x01)
+                    output["elements"]["rx_1024_qam_support_<_242_tone_ru_support"] = (
+                        (he_phy_info[9] >> 3) & 0x01)
+                    output["elements"]["rx_full_bw_su_using_he_mu_ppdu_with_compressed_he_sig_b"] = (
+                        (he_phy_info[9] >> 4) & 0x01)
+                    output["elements"]["rx_full_bw_su_using_he_mu_ppdu_with_non_compressed_he_sig_b"] = (
+                        (he_phy_info[9] >> 5) & 0x01)
+                    output["elements"]["nominal_packet_padding"] = (
+                        (he_phy_info[9] >> 6) & 0x03)
+
+                    output["elements"]["he_mu_ppdu_with_more_than_one_ru_rx_max_n_he_ltf"] = (
+                        (he_phy_info[10]) & 0x01)
+
+                    output["elements"]["supported_rx_mcs_set_<=_80mhz"] = int.from_bytes(
+                        byte_data[20:22], byteorder='little')
+                    output["elements"]["supported_tx_mcs_set_<=_80mhz"] = int.from_bytes(
+                        byte_data[22:24], byteorder='little')
+                    if (len(byte_data) >= 28):
+                        output["elements"]["supported_rx_mcs_set_160mhz"] = int.from_bytes(
+                            byte_data[24:26], byteorder='little')
+                        output["elements"]["supported_tx_mcs_set_160mhz"] = int.from_bytes(
+                            byte_data[26:28], byteorder='little')
+                    if (len(byte_data) >= 32):
+                        output["elements"]["supported_rx_mcs_set_80+80mhz"] = int.from_bytes(
+                            byte_data[28:30], byteorder='little')
+                        output["elements"]["supported_tx_mcs_set_80+80mhz"] = int.from_bytes(
+                            byte_data[30:32], byteorder='little')
                 case 36:
                     # HE Operation
                     output["type"] = "HE Operation"
