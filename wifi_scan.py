@@ -229,6 +229,68 @@ def read_beacon_ie(ie_hex_string):
                 (ht_mcs_set[12] >> 2) & 0x03)
             output["elements"]["tx_unequal_modulation_supported"] = (
                 (ht_mcs_set[12] >> 4) & 0x01)
+        case 191:
+            # VHT Capabilities
+            output["type"] = "VHT Capabilities"
+
+            vht_caps_info = byte_data[2:6]
+            output["elements"]["maximum_mpdu_length"] = (
+                (vht_caps_info[0]) & 0x03)
+            output["elements"]["supported_channel_width_set"] = (
+                (vht_caps_info[0] >> 2) & 0x03)
+            output["elements"]["rx_ldpc"] = (
+                (vht_caps_info[0] >> 4) & 0x01)
+            output["elements"]["short_gi_for_80mhz_tvht_mode_4c"] = (
+                (vht_caps_info[0] >> 5) & 0x01)
+            output["elements"]["short_gi_for_160mhz_and_80+80mhz"] = (
+                (vht_caps_info[0] >> 6) & 0x01)
+            output["elements"]["tx_stbc"] = (
+                (vht_caps_info[0] >> 7) & 0x01)
+            output["elements"]["rx_stbc"] = (
+                (vht_caps_info[1]) & 0x07)
+            output["elements"]["su_beamformer_capable"] = (
+                (vht_caps_info[1] >> 3) & 0x01)
+            output["elements"]["su_beamformee_capable"] = (
+                (vht_caps_info[1] >> 4) & 0x01)
+            output["elements"]["beamformee_sts_capability"] = (
+                (vht_caps_info[1] >> 5) & 0x07)
+            output["elements"]["number_of_sounding_dimensions"] = (
+                (vht_caps_info[2]) & 0x07)
+            output["elements"]["mu_beamformer_capable"] = (
+                (vht_caps_info[2] >> 3) & 0x01)
+            output["elements"]["mu_beamformee_capable"] = (
+                (vht_caps_info[2] >> 4) & 0x01)
+            output["elements"]["txop_ps"] = (
+                (vht_caps_info[2] >> 5) & 0x01)
+            output["elements"]["+htc_vht_capable"] = (
+                (vht_caps_info[2] >> 6) & 0x01)
+            output["elements"]["max_a_mpdu_length_exponent"] = (
+                ((vht_caps_info[2] >> 7) & 0x01)
+                + ((vht_caps_info[3] & 0x03) << 1))
+            output["elements"]["vht_link_adaptation"] = (
+                (vht_caps_info[3] >> 2) & 0x03)
+            output["elements"]["rx_antenna_pattern_consistency"] = (
+                (vht_caps_info[3] >> 4) & 0x01)
+            output["elements"]["tx_antenna_pattern_consistency"] = (
+                (vht_caps_info[3] >> 5) & 0x01)
+            output["elements"]["extended_nss_bw_support"] = (
+                (vht_caps_info[3] >> 6) & 0x03)
+
+            vht_mcs_set = byte_data[6:14]
+            output["elements"]["supported_rx_mcs_set"] = int.from_bytes(
+                vht_mcs_set[0:2], byteorder="little")
+            output["elements"]["rx_highest_long_gi_data_rate"] = (
+                (vht_mcs_set[2])
+                + ((vht_mcs_set[3] & 0x1F) << 8))
+            output["elements"]["max_nsts_total"] = (
+                (vht_caps_info[3] >> 5) & 0x07)
+            output["elements"]["supported_tx_mcs_set"] = int.from_bytes(
+                vht_mcs_set[4:6], byteorder="little")
+            output["elements"]["tx_highest_long_gi_data_rate_"] = (
+                (vht_mcs_set[6])
+                + ((vht_mcs_set[7] & 0x1F) << 8))
+            output["elements"]["extended_nss_bw_capable"] = (
+                (vht_mcs_set[7] >> 5) & 0x01)
         case 192:
             # VHT Operation
             output["type"] = "VHT Operation"
