@@ -235,6 +235,14 @@ def read_beacon_ie(ie_hex_string):
                 output["elements"]["tx_unequal_modulation_supported"] = (
                     (ht_mcs_set[12] >> 4) & 0x01)
 
+            case 133:
+                # Cisco CCX1 CKIP + Device name
+                # 1 ID | 1 len | 10 unknown | 15 device name | 2 num clients | 3 unknown
+                output["type"] = "Cisco CCX1 CKIP"
+                output["elements"]["ap_name"] = byte_data[12:27].decode('utf-8')
+                output["elements"]["sta_count"] = int.from_bytes(
+                    byte_data[27:29], byteorder='little')
+
             case 191:
                 # VHT Capabilities
                 output["type"] = "VHT Capabilities"
@@ -306,6 +314,35 @@ def read_beacon_ie(ie_hex_string):
                 output["elements"]["channel_center_freq_1"] = byte_data[4]
                 output["elements"]["basic_mcs_set"] = int.from_bytes(
                     byte_data[5:7], byteorder='little')
+
+            case 221:
+                # Vendor specific
+                # 1 ID | 1 Len | 3 OUI | 1 OUI Type | vendor specific payload
+                output["type"] = "Vendor Specific"
+                output["elements"]["oui"] = byte_data[2:5].hex().lower()
+                output["elements"]["oui_type"] = byte_data[5]
+
+                if (output["elements"]["oui"] == "000b86"):
+                    output["elements"]["vendor_name"] = "Aruba"
+                    # Only Aruba have subtype
+                    output["elements"]["oui_subtype"] = byte_data[6]
+                    if (output["elements"]["oui_type"] == 1
+                            and output["elements"]["oui_subtype"] == 3):
+                        # Skip byte_data[7] since it's always 0x00
+                        output["elements"]["ap_name"] = byte_data[8:].decode(
+                            'utf-8')
+                elif (output["elements"]["oui"] == "8cfdf0"):
+                    output["elements"]["vendor_name"] = "Qualcomm"
+                elif (output["elements"]["oui"] == "0050f2"):
+                    output["elements"]["vendor_name"] = "Microsoft"
+                elif (output["elements"]["oui"] == "506f9a"):
+                    output["elements"]["vendor_name"] = "Wi-Fi Alliance"
+                    if (output["elements"]["oui_type"] == 28):
+                        output["elements"]["bssid"] = utils.hex_to_bssid(
+                            byte_data[6:12].hex())
+                        # Skip byte_data[12] = SSID length
+                        output["elements"]["ssid"] = byte_data[13:].decode(
+                            'utf-8')
 
             case 255:
                 output["elements"]["ext_id"] = byte_data[2]

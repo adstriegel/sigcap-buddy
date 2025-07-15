@@ -4,6 +4,13 @@ import subprocess
 import signal
 
 
+def hex_to_bssid(input_string):
+    input_len = len(input_string)
+    if (input_len != 12):
+        logging.warning(f"{input_string} is possibly not a BSSID")
+    return ":".join(input_string[i:i+2] for i in range(0, input_len, 2)).upper()
+
+
 def sanitize(cmd):
     # Sanitize command, only allow certain symbols if it's in "sleep 1;"
     # TODO: also replace "sleep n;"
