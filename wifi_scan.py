@@ -40,6 +40,8 @@ def read_beacon_ie(ie_hex_string):
     # Convert hex string to bytes
     byte_data = bytes.fromhex(ie_hex_string)
     output["id"] = byte_data[0]
+    # Bytes are read from lowest index, example: [0x00, 0xFF, 0x1A]
+    # In wireshark becomes: 0x1AFF00
 
     match output["id"]:
         case 11:
@@ -68,14 +70,14 @@ def read_beacon_ie(ie_hex_string):
             output["elements"]["rifs_mode"] = (
                 (ht_operation_info[0] >> 3) & 0x01)
             output["elements"]["ht_protection"] = (
-                ht_operation_info[1] & 0x02)
+                ht_operation_info[1] & 0x03)
             output["elements"]["nongf_ht_sta_present"] = (
                 (ht_operation_info[1] >> 2) & 0x01)
             output["elements"]["obss_nonht_sta_present"] = (
                 (ht_operation_info[1] >> 4) & 0x01)
             output["elements"]["channel_center_freq_segment_2"] = (
-                ((ht_operation_info[1] >> 5) & 0x03)
-                + (ht_operation_info[2] << 8))
+                ((ht_operation_info[1] >> 5) & 0x07)
+                + ((ht_operation_info[2] & 0x1F) << 3))
             output["elements"]["dual_beacon"] = (
                 (ht_operation_info[3] >> 6) & 0x01)
             output["elements"]["dual_cts_protection"] = (
@@ -111,8 +113,8 @@ def read_beacon_ie(ie_hex_string):
                     output["elements"]["twt_required"] = (
                         (he_operation_info[0] >> 3) & 0x01)
                     output["elements"]["txop_dur_rts_thresh"] = (
-                        (he_operation_info[0] >> 4) & 0x0F
-                        + (he_operation_info[1] & 0x3F))
+                        ((he_operation_info[0] >> 4) & 0x0F)
+                        + ((he_operation_info[1] & 0x3F) << 4))
                     output["elements"]["vht_info_present"] = (
                         (he_operation_info[1] >> 6) & 0x01)
                     output["elements"]["cohosted_bss"] = (
