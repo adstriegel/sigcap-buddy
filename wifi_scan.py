@@ -57,6 +57,130 @@ def read_beacon_ie(ie_hex_string):
             output["type"] = "TPC Report"
             output["elements"]["tx_power"] = byte_uint_to_int(byte_data[2])
             output["elements"]["link_margin"] = byte_uint_to_int(byte_data[3])
+        case 45:
+            # HT Capabilities
+            output["type"] = "HT Capabilities"
+
+            ht_caps_info = byte_data[2:4]
+            output["elements"]["ht_ldpc_coding_capability"] = (
+                (ht_caps_info[0]) & 0x01)
+            output["elements"]["ht_support_channel_width"] = (
+                (ht_caps_info[0] >> 1) & 0x01)
+            output["elements"]["ht_sm_power_save"] = (
+                (ht_caps_info[0] >> 2) & 0x03)
+            output["elements"]["ht_green_field"] = (
+                (ht_caps_info[0] >> 4) & 0x01)
+            output["elements"]["ht_short_gi_for_20mhz"] = (
+                (ht_caps_info[0] >> 5) & 0x01)
+            output["elements"]["ht_short_gi_for_40mhz"] = (
+                (ht_caps_info[0] >> 6) & 0x01)
+            output["elements"]["ht_tx_stbc"] = (
+                (ht_caps_info[0] >> 7) & 0x01)
+            output["elements"]["ht_rx_stbc"] = (
+                (ht_caps_info[1]) & 0x03)
+            output["elements"]["ht_delayed_block_ack"] = (
+                (ht_caps_info[1] >> 2) & 0x01)
+            output["elements"]["ht_max_a_msdu_length"] = (
+                (ht_caps_info[1] >> 3) & 0x01)
+            output["elements"]["ht_dsss_cck_mode_in_40mhz"] = (
+                (ht_caps_info[1] >> 4) & 0x01)
+            output["elements"]["ht_psmp_support"] = (
+                (ht_caps_info[1] >> 5) & 0x01)
+            output["elements"]["ht_forty_mhz_intolerant"] = (
+                (ht_caps_info[1] >> 6) & 0x01)
+            output["elements"]["ht_l_sig_txop_protection_support"] = (
+                (ht_caps_info[1] >> 7) & 0x01)
+
+            ampdu_param = byte_data[4]
+            output["elements"]["maximum_rx_a_mpdu_length"] = (
+                (ampdu_param) & 0x03)
+            output["elements"]["mpdu_density"] = (
+                (ampdu_param >> 2) & 0x07)
+
+            ht_mcs_set = byte_data[5:21]
+            output["elements"]["rx_mcs_bitmask"] = int.from_bytes(
+                ht_mcs_set[0:10], byteorder='little')
+            output["elements"]["rx_highest_supported_rate"] = (
+                (ht_mcs_set[10])
+                + ((ht_mcs_set[11] & 0x03) << 8))
+            output["elements"]["tx_mcs_set_defined"] = (
+                (ht_mcs_set[12]) & 0x01)
+            output["elements"]["tx_rx_mcs_set_not_equal"] = (
+                (ht_mcs_set[12] >> 1) & 0x01)
+            output["elements"]["tx_max_ss_supported"] = (
+                (ht_mcs_set[12] >> 2) & 0x03)
+            output["elements"]["tx_unequal_modulation_supported"] = (
+                (ht_mcs_set[12] >> 4) & 0x01)
+
+            ht_ext_caps = byte_data[21:23]
+            output["elements"]["transmitter_supports_pco"] = (
+                (ht_ext_caps[0]) & 0x01)
+            output["elements"]["time_needed_to_transition_between_20mhz_and_40mhz"] = (
+                (ht_ext_caps[0] >> 1) & 0x03)
+            output["elements"]["mcs_feedback_capability"] = (
+                (ht_ext_caps[1]) & 0x03)
+            output["elements"]["high_throughput"] = (
+                (ht_ext_caps[1] >> 2) & 0x01)
+            output["elements"]["reverse_direction_responder"] = (
+                (ht_ext_caps[1] >> 3) & 0x01)
+
+            txbf_caps = byte_data[23:27]
+            output["elements"]["transmit_beamforming"] = (
+                (txbf_caps[0]) & 0x01)
+            output["elements"]["receive_staggered_sounding"] = (
+                (txbf_caps[0] >> 1) & 0x01)
+            output["elements"]["transmit_staggered_sounding"] = (
+                (txbf_caps[0] >> 2) & 0x01)
+            output["elements"]["receive_null_data_packet_(ndp)"] = (
+                (txbf_caps[0] >> 3) & 0x01)
+            output["elements"]["transmit_null_data_packet_(ndp)"] = (
+                (txbf_caps[0] >> 4) & 0x01)
+            output["elements"]["implicit_txbf_capable"] = (
+                (txbf_caps[0] >> 5) & 0x01)
+            output["elements"]["calibration"] = (
+                (txbf_caps[0] >> 6) & 0x03)
+            output["elements"]["sta_can_apply_txbf_using_csi_explicit_feedback"] = (
+                (txbf_caps[1]) & 0x01)
+            output["elements"]["sta_can_apply_txbf_using_uncompressed_beamforming_feedback_matrix"] = (
+                (txbf_caps[1] >> 1) & 0x01)
+            output["elements"]["sta_can_apply_txbf_using_compressed_beamforming_feedback_matrix"] = (
+                (txbf_caps[1] >> 2) & 0x01)
+            output["elements"]["receiver_can_return_explicit_csi_feedback"] = (
+                (txbf_caps[1] >> 3) & 0x03)
+            output["elements"]["receiver_can_return_explicit_uncompressed_beamforming_feedback_matrix"] = (
+                (txbf_caps[1] >> 5) & 0x03)
+            output["elements"]["sta_can_compress_and_use_compressed_beamforming_feedback_matrix"] = (
+                ((txbf_caps[1] >> 7) & 0x01)
+                + ((txbf_caps[2] & 0x01) << 1))
+            output["elements"]["minimal_grouping_used_for_explicit_feedback_reports"] = (
+                (txbf_caps[2] >> 1) & 0x03)
+            output["elements"]["max_antennae_sta_can_support_when_csi_feedback_required"] = (
+                (txbf_caps[2] >> 3) & 0x03)
+            output["elements"]["max_antennae_sta_can_support_when_uncompressed_beamforming_feedback_required"] = (
+                (txbf_caps[2] >> 5) & 0x03)
+            output["elements"]["max_antennae_sta_can_support_when_compressed_beamforming_feedback_required"] = (
+                ((txbf_caps[2] >> 7) & 0x01)
+                + ((txbf_caps[3] & 0x01) << 1))
+            output["elements"]["maximum_number_of_rows_of_csi_explicit_feedback"] = (
+                (txbf_caps[3] >> 1) & 0x03)
+            output["elements"]["maximum_number_of_space_time_streams_for_which_channel_dimensions_can_be_simultaneously_estimated"] = (
+                (txbf_caps[3] >> 3) & 0x03)
+
+            asel_caps = byte_data[27]
+            output["elements"]["antenna_selection_capable"] = (
+                (asel_caps) & 0x01)
+            output["elements"]["explicit_csi_feedback_based_tx_asel"] = (
+                (asel_caps >> 1) & 0x01)
+            output["elements"]["antenna_indices_feedback_based_tx_asel"] = (
+                (asel_caps >> 2) & 0x01)
+            output["elements"]["explicit_csi_feedback"] = (
+                (asel_caps >> 3) & 0x01)
+            output["elements"]["antenna_indices_feedback"] = (
+                (asel_caps >> 4) & 0x01)
+            output["elements"]["rx_asel"] = (
+                (asel_caps >> 5) & 0x01)
+            output["elements"]["tx_sounding_ppdus"] = (
+                (asel_caps >> 6) & 0x01)
         case 61:
             # HT Operation
             output["type"] = "HT Operation"
