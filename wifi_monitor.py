@@ -94,10 +94,12 @@ def monitor(monitor_iface, duration, packet_size=765, mode='all',
         logging.debug(target_chs)
         capture_files = list()
         for ch in target_chs:
+            set_freq_cmd = (f"sudo iw dev {monitor_iface} set freq "
+                            f"{ch['primary_center_freq']} {ch['width']}")
+            if (ch['width'] > 20):
+                set_freq_cmd += f" {ch['center_freq']}"
             result = utils.run_cmd(
-                (f"sudo iw dev {monitor_iface} set freq "
-                 f"{ch['primary_center_freq']} {ch['width']} "
-                 f"{ch['center_freq']}"),
+                set_freq_cmd,
                 (f"Set iface {monitor_iface} freq "
                  f"{ch['primary_center_freq']} {ch['width']} "
                  f"{ch['center_freq']}"),
