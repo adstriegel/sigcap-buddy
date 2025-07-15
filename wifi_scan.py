@@ -91,8 +91,20 @@ def read_beacon_ie(ie_hex_string):
             output["elements"]["pco_phase"] = (
                 (ht_operation_info[4] >> 3) & 0x01)
 
-            output["elements"]["basic_mcs_set"] = int.from_bytes(
-                byte_data[8:24], byteorder='little')
+            ht_mcs_set = byte_data[8:24]
+            output["elements"]["rx_mcs_bitmask"] = int.from_bytes(
+                ht_mcs_set[0:10], byteorder='little')
+            output["elements"]["rx_highest_supported_rate"] = (
+                (ht_mcs_set[10])
+                + ((ht_mcs_set[11] & 0x03) << 8))
+            output["elements"]["tx_mcs_set_defined"] = (
+                (ht_mcs_set[12]) & 0x01)
+            output["elements"]["tx_rx_mcs_set_not_equal"] = (
+                (ht_mcs_set[12] >> 1) & 0x01)
+            output["elements"]["tx_max_ss_supported"] = (
+                (ht_mcs_set[12] >> 2) & 0x03)
+            output["elements"]["tx_unequal_modulation_supported"] = (
+                (ht_mcs_set[12] >> 4) & 0x01)
         case 192:
             # VHT Operation
             output["type"] = "VHT Operation"
