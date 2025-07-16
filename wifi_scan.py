@@ -548,12 +548,12 @@ def read_beacon_ie(ie_hex_string):
                             byte_data[20:22], byteorder='little')
                         output["elements"]["supported_tx_mcs_set_<=_80mhz"] = int.from_bytes(
                             byte_data[22:24], byteorder='little')
-                        if (len(byte_data) >= 28):
+                        if (output["elements"]["channel_width_set"] & 4 > 0):
                             output["elements"]["supported_rx_mcs_set_160mhz"] = int.from_bytes(
                                 byte_data[24:26], byteorder='little')
                             output["elements"]["supported_tx_mcs_set_160mhz"] = int.from_bytes(
                                 byte_data[26:28], byteorder='little')
-                        if (len(byte_data) >= 32):
+                        if (output["elements"]["channel_width_set"] & 8 > 0):
                             output["elements"]["supported_rx_mcs_set_80+80mhz"] = int.from_bytes(
                                 byte_data[28:30], byteorder='little')
                             output["elements"]["supported_tx_mcs_set_80+80mhz"] = int.from_bytes(
