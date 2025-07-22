@@ -42,6 +42,29 @@ except Exception as e:
 logging.info("eth0 MAC address: %s", mac)
 
 
+def unblock_wlan(iface):
+    if (not iface.starts_with("wlan")):
+        logging.warning(f"Trying to ublock non-wlan interface {iface} !")
+        time.sleep(1)
+        return
+
+    driver_name = Path(utils.run_cmd(
+        f"readlink /sys/class/net/{iface}/device/driver",
+        f"Get interface {iface} driver path")).name.strip()
+
+    # Reload driver
+    utils.run_cmd(f"sudo modprobe -r {driver_name}")
+    time.sleep(0.5)
+    utils.run_cmd(f"sudo modprobe {driver_name}")
+    time.sleep(0.5)
+
+    # RF-kill unblock
+    utils.run_cmd("sudo rfkill block wlan")
+    time.sleep(0.5)
+    utils.run_cmd("sudo rfkill unblock wlan")
+    time.sleep(0.5)
+
+
 def set_interface_down(iface, conn=False):
     logging.info("Setting interface %s down.", iface)
     if (conn):
@@ -53,8 +76,21 @@ def set_interface_down(iface, conn=False):
 
 def set_interface_up(iface, conn=False):
     logging.info("Setting interface %s up.", iface)
-    utils.run_cmd("sudo ip link set {} up".format(iface),
-                  "Set interface {} link up".format(iface))
+
+    retry_count = 0
+    retry_max = 10
+    while (retry_count < retry_max):
+        output = utils.run_cmd(
+            f"sudo ip link set {iface} up",
+            f"Set interface {iface} link up",
+            raw_out=True)
+        if (output['returncode'] == 0):
+            retry_count += retry_max
+        else:
+            retry_count += 1
+            unblock_wlan(iface)
+            logging.debug(f"Error setting link up, retry count: {retry_count}")
+
     if (conn):
         retry_count = 0
         retry_max = 10
