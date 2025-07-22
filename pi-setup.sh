@@ -3,10 +3,9 @@
 USER=`whoami`
 
 # 1. Install required apps, setup firebase venv
-echo "wireshark-common wireshark-common/install-setuid boolean true" | sudo debconf-set-selections
 echo "iperf3 iperf3/start_daemon boolean false" | sudo debconf-set-selections
 sudo sed -i "s/#deb-src/deb-src/g" /etc/apt/sources.list
-sudo apt update && DEBIAN_FRONTEND=noninteractive sudo apt install build-essential git iperf3 python3 python3-pip python3-venv wireshark -y
+sudo apt update && DEBIAN_FRONTEND=noninteractive sudo apt install build-essential git iperf3 python3 python3-pip python3-venv tcpdump -y
 
 # Patch iwlist
 FOUND=
