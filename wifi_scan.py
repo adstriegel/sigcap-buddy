@@ -617,6 +617,27 @@ def read_beacon_ie(ie_hex_string):
                                 "min_rate": byte_data[start_index + 4],
                             }
                             start_index += 5
+
+                    case 59:
+                        # HE 6 GHz Band Capabilities
+                        output["type"] = "HE 6 GHz Band Capabilities"
+                        he_caps = byte_data[3:5]
+
+                        output["elements"]["minimum_mpdu_start_spacing"] = (
+                            (he_caps[0]) & 0x07)
+                        output["elements"]["maximum_a_mpdu_length_exponent"] = (
+                            (he_caps[0] >> 3) & 0x07)
+                        output["elements"]["maximum_mpdu_length"] = (
+                            (he_caps[0] >> 6) & 0x03)
+                        output["elements"]["sm_power_save"] = (
+                            (he_caps[1] >> 1) & 0x03)
+                        output["elements"]["rd_responder"] = (
+                            (he_caps[1] >> 3) & 0x01)
+                        output["elements"]["rx_antenna_pattern_consistency"] = (
+                            (he_caps[1] >> 4) & 0x01)
+                        output["elements"]["tx_antenna_pattern_consistency"] = (
+                            (he_caps[1] >> 5) & 0x01)
+
                     case _:
                         pass
             case _:
