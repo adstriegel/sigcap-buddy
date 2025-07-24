@@ -43,7 +43,7 @@ logging.info("eth0 MAC address: %s", mac)
 
 
 def unblock_wlan(iface):
-    if (not iface.starts_with("wlan")):
+    if (not iface.startswith("wlan")):
         logging.warning(f"Trying to ublock non-wlan interface {iface} !")
         time.sleep(1)
         return
