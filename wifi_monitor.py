@@ -109,6 +109,7 @@ def monitor(monitor_iface, duration, packet_size=765, mode='all',
                 kill=True)
             logging.info('Capture finished !')
             capture_files.append(file_name)
+            time.sleep(1)
 
         completed_capture_files = [fn for fn in capture_files if fn.is_file()]
         if (len(completed_capture_files) > 0):
