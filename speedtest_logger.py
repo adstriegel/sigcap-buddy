@@ -51,12 +51,16 @@ def unblock_wlan(iface):
     driver_name = Path(utils.run_cmd(
         f"readlink /sys/class/net/{iface}/device/driver",
         f"Get interface {iface} driver path")).name.strip()
+    logging.debug(f"Got driver name {driver_name} for {iface}")
 
-    # Reload driver
-    utils.run_cmd(f"sudo modprobe -r {driver_name}")
-    time.sleep(0.5)
-    utils.run_cmd(f"sudo modprobe {driver_name}")
-    time.sleep(0.5)
+    if (driver_name):
+        # Reload driver
+        utils.run_cmd(f"sudo modprobe -r {driver_name}")
+        time.sleep(0.5)
+        utils.run_cmd(f"sudo modprobe {driver_name}")
+        time.sleep(0.5)
+    else:
+        logging.warning(f"Cannot get driver name for {iface} !")
 
     # RF-kill unblock
     utils.run_cmd("sudo rfkill block wlan")
