@@ -122,6 +122,20 @@ def get_services():
     return parsed
 
 
+def get_git_info():
+    curr_branch = utils.run_cmd("git branch --show-current").strip()
+    log_parsed = jc.parse("git_log", utils.run_cmd("git log -n1"))
+    last_commit = log_parsed[0] if (len(log_parsed) > 0) else dict()
+    out = {
+        "branch": curr_branch,
+        "commit": last_commit["commit"] if "commit" in last_commit else "",
+        "date": last_commit["date"] if "date" in last_commit else "",
+        "message": last_commit["message"] if "message" in last_commit else ""
+    }
+
+    return out
+
+
 def create_status(specific=None):
     match specific:
         case "ssid":
@@ -136,15 +150,18 @@ def create_status(specific=None):
             out = get_ifaces("mac")
         case "srv":
             out = get_services()
+        case "git":
+            out = get_git_info()
         case _:
             out = {
                 "ssid": get_ssid(),
                 "ifaces": get_ifaces(),
-                "services": get_services()
+                "services": get_services(),
+                "git": get_git_info()
             }
 
     msg_type = "status"
-    if specific in ["ssid", "iface", "up", "ip", "mac", "srv"]:
+    if specific in ["ssid", "iface", "up", "ip", "mac", "srv", "git"]:
         msg_type += f"/{specific}"
 
     return create_msg(msg_type, out)
@@ -235,7 +252,7 @@ def on_message(client, userdata, msg):
 
         case "status":
             # Query status
-            # Extra options: "/[ssid|iface|up|ip|mac|srv]"
+            # Extra options: "/[ssid|iface|up|ip|mac|srv|git]"
             specific = None
             if len(extras) > 0:
                 specific = extras[0]
