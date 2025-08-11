@@ -93,6 +93,7 @@ def monitor(monitor_iface, duration, packet_size=765, mode='all',
                 logging.warning(f"Cannot set {monitor_iface} freq ! "
                                 f"{result['stderr']}")
                 continue
+            time.sleep(2)
 
             file_name = Path(f"capture_{ch['freq_label']}_{ch['primary_ch']}_"
                              f"{ch['width']}.pcap")
@@ -109,7 +110,7 @@ def monitor(monitor_iface, duration, packet_size=765, mode='all',
                 kill=True)
             logging.info('Capture finished !')
             capture_files.append(file_name)
-            time.sleep(1)
+            time.sleep(duration if duration < 5 else 5)
 
         completed_capture_files = [fn for fn in capture_files if fn.is_file()]
         if (len(completed_capture_files) > 0):
@@ -124,4 +125,3 @@ def monitor(monitor_iface, duration, packet_size=765, mode='all',
                 fn.unlink()
         else:
             logging.info("No completed captures, skip zipping...")
-
