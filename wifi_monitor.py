@@ -59,18 +59,35 @@ channel_list = [
 
 
 def monitor(monitor_iface, duration, packet_size=765, mode='all',
-            last_scan=None):
+            freq_list=None, last_scan=None):
     # Determine target channels
     target_chs = list()
     if (mode == 'all'):
         target_chs = channel_list
     elif (mode == '2.4ghz' or mode == '5ghz' or mode == '6ghz'):
         target_chs = [ch for ch in channel_list if ch['freq_label'] == mode]
-    elif (mode == 'scan' and type(last_scan) == list and len(last_scan) > 0):
-        freq_list = list(set(
-            [utils.freq_str_to_mhz(beacon['freq']) for beacon in last_scan]))
-        target_chs = [ch for ch in channel_list
-                      if ch['primary_center_freq'] in freq_list]
+    elif (mode == 'freq'):
+        if (type(freq_list) == list and len(freq_list) > 0):
+            target_chs = [ch for ch in channel_list
+                          if ch['primary_center_freq'] in freq_list]
+        else:
+            logging.warning('On "freq" mode, freq_list is empty !')
+    elif (mode == 'scan' or mode == 'conn'):
+        if (type(last_scan) == list and len(last_scan) > 0):
+            freq_list = list()
+            if (mode == 'scan'):
+                freq_list = list(set(
+                    [utils.freq_str_to_mhz(beacon['freq'])
+                     for beacon in last_scan]))
+            elif (mode == 'conn'):
+                freq_list = list(set(
+                    [utils.freq_str_to_mhz(beacon['freq'])
+                     for beacon in last_scan
+                     if beacon['connected']]))
+            target_chs = [ch for ch in channel_list
+                          if ch['primary_center_freq'] in freq_list]
+        else:
+            logging.warning(f'On "{mode}" mode, last_scan is empty !')
     else:
         logging.error(f"Unknown monitor mode {mode} !")
     
@@ -125,3 +142,5 @@ def monitor(monitor_iface, duration, packet_size=765, mode='all',
                 fn.unlink()
         else:
             logging.info("No completed captures, skip zipping...")
+    else:
+        logging.warning("Target channel list is empty !")

@@ -9,6 +9,7 @@
     "monitor_duration": 5,
     "monitor_size": 765,
     "monitor_mode": "scan",
+    "monitor_freq_list": [],
     "iperf_ping_enabled": true,
     "ookla_enabled": true,
     "iperf_server": "ns-mn1.cse.nd.edu",

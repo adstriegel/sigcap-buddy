@@ -712,6 +712,7 @@ def main():
                     config["monitor_duration"],
                     config["monitor_size"],
                     config["monitor_mode"],
+                    config["monitor_freq_list"],
                     last_wifi_scan_results)
                 disable_monitor(
                     config["monitor_interface"],
