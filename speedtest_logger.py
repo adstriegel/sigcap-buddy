@@ -74,8 +74,10 @@ def set_interface_down(iface, conn=False):
     if (conn):
         utils.run_cmd("sudo nmcli connection down '{}'".format(conn),
                       "Set connection {} down".format(conn))
+        time.sleep(1)
     utils.run_cmd("sudo ip link set {} down".format(iface),
                   "Set interface {} link down".format(iface))
+    time.sleep(1)
 
 
 def set_interface_up(iface, conn=False):
@@ -95,6 +97,8 @@ def set_interface_up(iface, conn=False):
             unblock_wlan(iface)
             logging.debug(f"Error setting link up, retry count: {retry_count}")
 
+    time.sleep(1)
+
     if (conn):
         retry_count = 0
         retry_max = 10
@@ -109,6 +113,8 @@ def set_interface_up(iface, conn=False):
                 logging.debug("Error setting conn up, retry count: %s",
                               retry_count)
 
+    time.sleep(1)
+
 
 def enable_monitor(iface, conn=False):
     logging.info("Enabling interface %s as monitor.", iface)
@@ -120,6 +126,7 @@ def enable_monitor(iface, conn=False):
         set_interface_down(iface, conn)
         utils.run_cmd("sudo iw dev {} set type monitor".format(iface),
                       "Set interface {} as monitor".format(iface))
+        time.sleep(1)
     set_interface_up(iface)
 
 
@@ -133,6 +140,7 @@ def disable_monitor(iface, conn=False):
         set_interface_down(iface)
         utils.run_cmd("sudo iw dev {} set type managed".format(iface),
                       "Set interface {} as managed".format(iface))
+        time.sleep(1)
     set_interface_up(iface, conn)
 
 
